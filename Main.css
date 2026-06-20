@@ -1,0 +1,176 @@
+:root{
+    --azul:#dff4ff;
+    --rosa:#ffe5ef;
+    --rosa-dark:#ff8fb1;
+    --azul-dark:#7ab8d6;
+    --texto:#2c2c2c;
+    --branco:#ffffff;
+}
+
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+}
+
+html{
+    scroll-behavior:smooth;
+}
+
+body{
+    font-family:'Montserrat',sans-serif;
+    color:var(--texto);
+    background:#fafafa;
+}
+
+h1,h2,h3,h4,h5{
+    font-family:'Playfair Display',serif;
+}
+
+.navbar{
+    backdrop-filter:blur(10px);
+    background:rgba(255,255,255,.95)!important;
+}
+
+.navbar-brand{
+    font-size:1.7rem;
+    letter-spacing:1px;
+}
+
+.nav-link{
+    font-weight:600;
+    margin-left:15px;
+    transition:.3s;
+}
+
+.nav-link:hover{
+    color:var(--rosa-dark);
+}
+
+.hero{
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    background:
+    linear-gradient(rgba(255,255,255,.4),
+    rgba(255,255,255,.4)),
+    url('https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=1800&q=80');
+    background-size:cover;
+    background-position:center;
+}
+
+.hero h1{
+    font-size:4rem;
+    margin-bottom:20px;
+}
+
+.hero p{
+    font-size:1.3rem;
+    max-width:700px;
+    margin:auto;
+}
+
+.btn-loja{
+    background:linear-gradient(45deg,var(--rosa-dark),var(--azul-dark));
+    color:white;
+    border:none;
+    padding:14px 35px;
+    border-radius:40px;
+    margin-top:20px;
+    font-weight:700;
+}
+
+.btn-loja:hover{
+    transform:translateY(-3px);
+}
+
+section{
+    padding:90px 0;
+}
+
+#produtos{
+    background:linear-gradient(135deg,var(--azul),var(--rosa));
+}
+
+.card{
+    border:none;
+    border-radius:25px;
+    overflow:hidden;
+    transition:.4s;
+    background:white;
+    box-shadow:0 15px 40px rgba(0,0,0,.08);
+}
+
+.card:hover{
+    transform:translateY(-10px);
+}
+
+.card img{
+    height:350px;
+    object-fit:cover;
+}
+
+.card-body{
+    padding:25px;
+}
+
+.preco-antigo{
+    text-decoration:line-through;
+    color:#999;
+}
+
+.preco{
+    font-size:1.4rem;
+    color:var(--rosa-dark);
+    font-weight:700;
+}
+
+.desconto{
+    background:#ffedf4;
+    color:#ff4f87;
+    display:inline-block;
+    padding:5px 12px;
+    border-radius:30px;
+    font-size:.9rem;
+    margin-bottom:10px;
+}
+
+.titulo-secao{
+    text-align:center;
+    margin-bottom:60px;
+}
+
+.titulo-secao h2{
+    font-size:3rem;
+}
+
+footer{
+    background:#222;
+    color:white;
+    text-align:center;
+    padding:40px 20px;
+}
+
+footer p{
+    margin:0;
+}
+
+@media(max-width:768px){
+
+.hero h1{
+    font-size:2.5rem;
+}
+
+.hero p{
+    font-size:1rem;
+}
+
+.card img{
+    height:280px;
+}
+
+.titulo-secao h2{
+    font-size:2rem;
+}
+
+}
