@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>Ateliê Aurora | Moda Feminina Premium</title>
+
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;700&family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+
+:root{
+--rosa:#ffe8f1;
+--azul:#e7f7ff;
+--rosa-dark:#ff8fb1;
+--azul-dark:#89cbe8;
+--texto:#2c2c2c;
+}
+
+body{
+font-family:'Montserrat',sans-serif;
+color:var(--texto);
+overflow-x:hidden;
+}
+
+h1,h2,h3,h4{
+font-family:'Playfair Display',serif;
+}
+
+.navbar{
+background:white;
+box-shadow:0 3px 15px rgba(0,0,0,.05);
+}
+
+.navbar-brand{
+font-size:1.8rem;
+font-weight:700;
+}
+
+.hero{
+height:100vh;
+background:
+linear-gradient(rgba(255,255,255,.35),
+rgba(255,255,255,.35)),
+url('https://images.unsplash.com/photo-1496747611176-843222e1e57c?auto=format&fit=crop&w=1800&q=80');
+background-size:cover;
+background-position:center;
+display:flex;
+align-items:center;
+text-align:center;
+}
+
+.hero h1{
+font-size:4rem;
+}
+
+.hero p{
+font-size:1.2rem;
+max-width:700px;
+margin:auto;
+}
+
+.btn-premium{
+background:linear-gradient(45deg,var(--rosa-dark),var(--azul-dark));
+border:none;
+padding:14px 35px;
+border-radius:50px;
+font-weight:600;
+color:white;
+}
+
+.section-title{
+text-align:center;
+margin-bottom:60px;
+}
+
+.section-title h2{
+font-size:3rem;
+}
+
+.card-produto{
+border:none;
+border-radius:25px;
+overflow:hidden;
+box-shadow:0 10px 30px rgba(0,0,0,.08);
+transition:.3s;
+}
+
+.card-produto:hover{
+transform:translateY(-10px);
+}
+
+.card-produto img{
+height:420px;
+object-fit:cover;
+}
+
+.preco-antigo{
+text-decoration:line-through;
+color:#888;
+}
+
+.preco{
+font-size:1.4rem;
+font-weight:700;
+color:#ff6796;
+}
+
+.badge-desconto{
+background:#ffe4ee;
+color:#ff4b86;
+padding:8px 15px;
+border-radius:50px;
+font-size:.85rem;
+}
+
+.descontos{
+background:linear-gradient(135deg,var(--rosa),var(--azul));
+}
+
+.colecao{
+background:#fafafa;
+}
+
+.newsletter{
+background:linear-gradient(135deg,var(--azul),var(--rosa));
+padding:80px 0;
+}
+
+footer{
+background:#222;
+color:white;
+padding:50px 0;
+}
+
+footer a{
+color:#ddd;
+text-decoration:none;
+}
+
+.carousel-item img{
+height:650px;
+object-fit:cover;
+}
+
+.depoimento{
+background:white;
+padding:30px;
+border-radius:20px;
+box-shadow:0 10px 25px rgba(0,0,0,.08);
+}
+
+@media(max-width:768px){
+
+.hero h1{
+font-size:2.5rem;
+}
+
+.carousel-item img{
+height:350px;
+}
+
+.card-produto img{
+height:300px;
+}
+
+.section-title h2{
+font-size:2rem;
+}
+
+}
+
+</style>
+
+</head>
+
+<body>
+
+<nav class="navbar navbar-expand-lg fixed-top">
+<div class="container">
+
+<a class="navbar-brand" href="#">
+Ateliê Aurora
+</a>
+
+<button class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#menu">
+<span class="navbar-toggler-icon"></span>
+</button>
+
+<div class="collapse navbar-collapse" id="menu">
+<ul class="navbar-nav ms-auto">
+
+<li class="nav-item">
+<a class="nav-link" href="#colecao">Coleção</a>
+</li>
+
+<li class="nav-item">
+<a class="nav-link" href="#produtos">Produtos</a>
+</li>
+
+<li class="nav-item">
+<a class="nav-link" href="#depoimentos">Clientes</a>
+</li>
+
+<li class="nav-item">
+<a class="nav-link" href="#contato">Contato</a>
+</li>
+
+</ul>
+</div>
+
+</div>
+</nav>
+
+<section class="hero">
+
+<div class="container">
+
+<h1>Moda criada para durar além das tendências</h1>
+
+<p class="my-4">
+Peças cuidadosamente selecionadas para mulheres que valorizam elegância, conforto e autenticidade.
+</p>
+
+<a href="#produtos" class="btn btn-premium">
+Explorar Coleção
+</a>
+
+</div>
+
+</section>
+
+<div id="bannerPrincipal" class="carousel slide" data-bs-ride="carousel">
+
+<div class="carousel-inner">
+
+<div class="carousel-item active">
+<img src="https://images.unsplash.com/photo-1529139574466-a303027c1d8b?auto=format&fit=crop&w=1800&q=80" class="d-block w-100">
+</div>
+
+<div class="carousel-item">
+<img src="https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=1800&q=80" class="d-block w-100">
+</div>
+
+<div class="carousel-item">
+<img src="https://images.unsplash.com/photo-1495385794356-15371f348c31?auto=format&fit=crop&w=1800&q=80" class="d-block w-100">
+</div>
+
+</div>
+
+<button class="carousel-control-prev" type="button" data-bs-target="#bannerPrincipal" data-bs-slide="prev">
+<span class="carousel-control-prev-icon"></span>
+</button>
+
+<button class="carousel-control-next" type="button" data-bs-target="#bannerPrincipal" data-bs-slide="next">
+<span class="carousel-control-next-icon"></span>
+</button>
+
+</div>
+
+<section id="colecao" class="colecao py-5">
+
+<div class="container">
+
+<div class="section-title">
+<h2>Nova Coleção</h2>
+<p>Silhuetas leves, tecidos sofisticados e cores suaves para acompanhar sua rotina.</p>
+</div>
+
+</div>
+
+</section>
+
+<section id="produtos" class="py-5">
+
+<div class="container">
+
+<div class="section-title">
+<h2>Destaques da Semana</h2>
+</div>
+
+<div class="row g-4">
+
+<div class="col-md-4">
+<div class="card card-produto">
+<img src="https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=900&q=80">
+<div class="card-body">
+<span class="badge-desconto">25% OFF</span>
+<h5 class="mt-3">Vestido Aurora</h5>
+<p>Modelagem fluida com acabamento premium.</p>
+<div class="preco-antigo">R$ 329,90</div>
+<div class="preco">R$ 247,90</div>
+</div>
+</div>
+</div>
+
+<div class="col-md-4">
+<div class="card card-produto">
+<img src="https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=900&q=80">
+<div class="card-body">
+<span class="badge-desconto">30% OFF</span>
+<h5 class="mt-3">Blazer Lumière</h5>
+<p>Elegância para trabalho e ocasiões especiais.</p>
+<div class="preco-antigo">R$ 399,90</div>
+<div class="preco">R$ 279,90</div>
+</div>
+</div>
+</div>
+
+<div class="col-md-4">
+<div class="card card-produto">
+<img src="https://images.unsplash.com/photo-1496747611176-843222e1e57c?auto=format&fit=crop&w=900&q=80">
+<div class="card-body">
+<span class="badge-desconto">20% OFF</span>
+<h5 class="mt-3">Conjunto Essence</h5>
+<p>Minimalista, sofisticado e extremamente versátil.</p>
+<div class="preco-antigo">R$ 289,90</div>
+<div class="preco">R$ 229,90</div>
+</div>
+</div>
+</div>
+
+</div>
+
+</div>
+
+</section>
+
+<section class="descontos py-5">
+
+<div class="container text-center">
+
+<h2>Até 40% OFF em peças selecionadas</h2>
+
+<p class="mt-3">
+Descontos exclusivos em modelos escolhidos para renovar seu guarda-roupa com elegância.
+</p>
+
+</div>
+
+</section>
+
+<section id="depoimentos" class="py-5">
+
+<div class="container">
+
+<div class="section-title">
+<h2>Quem veste Aurora</h2>
+</div>
+
+<div class="row g-4">
+
+<div class="col-md-4">
+<div class="depoimento">
+★★★★★
+<p class="mt-3">
+As peças têm acabamento impecável e vestem muito bem.
+</p>
+<strong>Marina A.</strong>
+</div>
+</div>
+
+<div class="col-md-4">
+<div class="depoimento">
+★★★★★
+<p class="mt-3">
+Atendimento excelente e qualidade acima do esperado.
+</p>
+<strong>Fernanda R.</strong>
+</div>
+</div>
+
+<div class="col-md-4">
+<div class="depoimento">
+★★★★★
+<p class="mt-3">
+Minha loja favorita para encontrar peças elegantes sem exageros.
+</p>
+<strong>Juliana M.</strong>
+</div>
+</div>
+
+</div>
+
+</div>
+
+</section>
+
+<section class="newsletter">
+
+<div class="container text-center">
+
+<h2>Receba novidades em primeira mão</h2>
+
+<p>
+Coleções, lançamentos e condições especiais diretamente no seu e-mail.
+</p>
+
+<div class="row justify-content-center mt-4">
+
+<div class="col-md-6">
+
+<div class="input-group">
+
+<input type="email" class="form-control" placeholder="Seu melhor e-mail">
+
+<button class="btn btn-premium">
+Cadastrar
+</button>
+
+</div>
+
+</div>
+
+</div>
+
+</div>
+
+</section>
+
+<footer id="contato">
+
+<div class="container text-center">
+
+<h3>Ateliê Aurora</h3>
+
+<p class="mt-3">
+Moda feminina contemporânea.
+</p>
+
+<p>
+WhatsApp: (00) 00000-0000
+</p>
+
+<p>
+Instagram: @atelieaurora
+</p>
+
+</div>
+
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+</body>
+</html>
