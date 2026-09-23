@@ -15,10 +15,11 @@ const DATABASE_URL = process.env.DATABASE_URL;
 const SESSION_SECRET = process.env.SESSION_SECRET;
 const COOKIE = 'cdf_session';
 
-if (!DATABASE_URL) throw new Error('DATABASE_URL ausente');
 if (!SESSION_SECRET || SESSION_SECRET.length < 32) throw new Error('SESSION_SECRET ausente ou curto');
-
-const pool = new Pool({ connectionString: DATABASE_URL, ssl: process.env.DB_SSL === 'disable' ? false : { rejectUnauthorized: false }, max: 8 });
+const cloudEnabled = Boolean(DATABASE_URL);
+const pool = cloudEnabled
+  ? new Pool({ connectionString: DATABASE_URL, ssl: process.env.DB_SSL === 'disable' ? false : { rejectUnauthorized: false }, max: 8 })
+  : null;
 const app = express();
 
 const indexParts = Array.from({ length: 8 }, (_, i) => path.join(__dirname, 'public', `index.part${String(i + 1).padStart(2, '0')}`));
@@ -92,6 +93,7 @@ function validSave(data) {
 }
 
 async function migrate() {
+  if (!cloudEnabled) return;
   await pool.query(`
     CREATE TABLE IF NOT EXISTS users (
       id BIGSERIAL PRIMARY KEY,
@@ -109,9 +111,12 @@ async function migrate() {
 }
 
 app.get('/api/health', async (_req, res) => {
-  try { await pool.query('SELECT 1'); res.json({ ok: true, version: 3 }); }
-  catch { res.status(503).json({ ok: false }); }
+  if (!cloudEnabled) return res.json({ ok: true, version: 3, cloud: false });
+  try { await pool.query('SELECT 1'); res.json({ ok: true, version: 3, cloud: true }); }
+  catch { res.status(503).json({ ok: false, cloud: false }); }
 });
+app.use('/api/auth', (req, res, next) => cloudEnabled ? next() : res.status(503).json({ error: 'Save na nuvem ainda não foi ativado neste servidor.' }));
+app.use('/api/save', (req, res, next) => cloudEnabled ? next() : res.status(503).json({ error: 'Save na nuvem ainda não foi ativado neste servidor.' }));
 
 app.post('/api/auth/register', authLimiter, async (req, res) => {
   const username = normalizeUsername(req.body?.username);
@@ -182,7 +187,7 @@ app.get(['/', '/index.html'], (_req, res) => res.type('html').set('Cache-Control
 app.use(express.static(path.join(__dirname, 'public'), { etag: true, maxAge: '1h' }));
 
 migrate().then(() => {
-  app.listen(PORT, '0.0.0.0', () => console.log(`Crônicas do Ferro online na porta ${PORT}`));
+  app.listen(PORT, '0.0.0.0', () => console.log(`Crônicas do Ferro online na porta ${PORT} | cloud=${cloudEnabled}`));
 }).catch(err => {
   console.error('migration_error', err);
   process.exit(1);
