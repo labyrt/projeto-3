@@ -1,0 +1,61 @@
+100000100101','1011111100010101110100101','1000000100000101010100001','1111100111111101010111101','1000100000000001010000101','1010111111111101011110101','1010000000000001000010101','1011111111110111111010101','1000000000000000000000001','1111111111111111111111111']},
+ dungeon2:{name:'Abismo do Guardião',theme:'dungeon',map:[
+ '1111111111111111111111111','1000000000000000000000001','1011111111000001111111101','1010000011000001100000101','1010000011000001100000101','1010000000000000000000101','1011110000011100001111101','1000000000000000000000001','1011110000011100001111101','1010000000000000000000101','1010000011000001100000101','1010000011000001100000101','1011111111000001111111101','1000000000000000000000001','1111111111111111111111111']}
+};
+let world={};
+let player={x:8*T,y:7*T,dir:'down',classId:'hunter',name:'Ari',hp:82,maxHp:82,mp:60,maxMp:60,damage:13,speed:74,range:105,cool:0.44,armor:.05,level:1,xp:0,xpNext:40,gold:35,weapon:1,potions:2,ore:0,relics:0,quest:0,attackCd:0,invuln:0,area:'village'};
+let enemies=[],projectiles=[],particles=[],npcs=[],chests=[],portals=[],secrets=[],bossDead=false,areaVisited={},progress={openedChests:{},openedSecrets:{}};
+function freshWorld(resetProgress=false){
+ world={village:areaDefs.village.map.map(r=>r.split('')),forest:areaDefs.forest.map.map(r=>r.split('')),dungeon1:areaDefs.dungeon1.map.map(r=>r.split('')),dungeon2:areaDefs.dungeon2.map.map(r=>r.split(''))};
+ if(resetProgress){bossDead=false;areaVisited={};progress={openedChests:{},openedSecrets:{}}}
+}
+freshWorld();
+function px(tx,ty){return{x:tx*T+8,y:ty*T+8}}
+function setupArea(id,from,keepPosition=false){
+ player.area=id; enemies=[];projectiles=[];particles=[];npcs=[];chests=[];portals=[];secrets=[];
+ if(id==='village'){
+  if(!keepPosition){if(from==='forest')Object.assign(player,px(22,7));else Object.assign(player,px(6,7));}
+  npcs=[{...px(6,6),type:'shop',name:'Mara, Mercadora'},{...px(10,6),type:'smith',name:'Borin, Ferreiro'},{...px(14,6),type:'elder',name:'Ilyra, Vigia'}];
+  portals.push({x:24*T+7,y:7*T+8,to:'forest',r:12});
+  chests.push({id:'village_cache',...px(20,11),open:!!progress.openedChests.village_cache,anim:0,loot:{gold:18,potions:1}});
+ } else if(id==='forest'){
+  if(!keepPosition){if(from==='village')Object.assign(player,px(1,7));else if(from==='dungeon1')Object.assign(player,px(19,2));else Object.assign(player,px(1,7));}
+  portals.push({x:0*T+8,y:7*T+8,to:'village',r:12});
+  portals.push({...px(21,2),to:'dungeon1',r:12,kind:'door'});
+  chests.push({id:'forest_chest',...px(17,9),open:!!progress.openedChests.forest_chest,anim:0,loot:{gold:34,ore:2}});
+  spawnEnemies('wolf',7,[[6,3],[12,5],[18,3],[20,7],[7,11],[14,12],[19,11]]);
+  spawnEnemies('slime',4,[[3,5],[9,8],[15,8],[19,12]]);
+ } else if(id==='dungeon1'){
+  if(!keepPosition){if(from==='forest')Object.assign(player,px(2,13));else if(from==='dungeon2')Object.assign(player,px(21,1));else Object.assign(player,px(2,13));}
+  portals.push({...px(1,13),to:'forest',r:12});
+  portals.push({...px(22,1),to:'dungeon2',r:12,kind:'stairs'});
+  chests.push({id:'crypt_chest',...px(20,7),open:!!progress.openedChests.crypt_chest,anim:0,loot:{gold:56,ore:3,potions:1}});
+  chests.push({id:'secret_chest',...px(5,3),open:!!progress.openedChests.secret_chest,anim:0,loot:{gold:90,ore:4,relics:1}});
+  const secret={id:'crypt_secret',tx:2,ty:3,open:!!progress.openedSecrets.crypt_secret};secrets.push(secret);if(secret.open)world.dungeon1[secret.ty][secret.tx]='0';
+  spawnEnemies('skeleton',8,[[5,1],[13,1],[18,1],[3,5],[9,7],[17,5],[6,11],[19,11]]);
+ } else if(id==='dungeon2'){
+  if(!keepPosition){if(from==='dungeon1')Object.assign(player,px(12,12));else Object.assign(player,px(12,12));}
+  portals.push({...px(12,13),to:'dungeon1',r:12,kind:'stairs'});
+  spawnEnemies('skeleton',6,[[4,3],[20,3],[4,11],[20,11],[8,7],[16,7]]);
+  if(!bossDead) enemies.push(makeEnemy('warden',12,5));
+  chests.push({id:'abyss_chest',...px(12,2),open:!!progress.openedChests.abyss_chest,anim:0,loot:{gold:120,ore:5,potions:2}});
+ }
+ areaVisited[id]=true;portalLock=.55;areaFade=.7;updateHUD();saveGame();
+}
+function spawnEnemies(type,n,spots){for(let i=0;i<n;i++){let s=spots[i%spots.length];enemies.push(makeEnemy(type,s[0],s[1]));}}
+function makeEnemy(type,tx,ty){
+ const db={wolf:{name:'Lobo Sombrio',hp:28,dmg:8,speed:36,xp:12,gold:[3,9],r:6,color:'#84735d'},slime:{name:'Limo da Mata',hp:22,dmg:6,speed:22,xp:9,gold:[2,6],r:7,color:'#6d8e55'},skeleton:{name:'Esqueleto Jurado',hp:42,dmg:11,speed:29,xp:18,gold:[6,15],r:6,color:'#b7ad90'},warden:{name:'Guardião do Abismo',hp:260,dmg:18,speed:24,xp:160,gold:[120,180],r:11,color:'#7b4a4a',boss:true}}[type];
+ return{id:Math.random(),type,x:tx*T+8,y:ty*T+8,vx:0,vy:0,hp:db.hp,maxHp:db.hp,...db,hit:0,atk:0,dead:false};
+}
+function solidAt(x,y){const tx=Math.floor(x/T),ty=Math.floor(y/T),m=world[player.area];if(tx<0||ty<0||ty>=m.length||tx>=m[0].length)return true;return m[ty][tx]==='1';}
+function actorBlocked(x,y,r){for(const n of npcs)if(Math.hypot(x-n.x,y-n.y)<r+7)return true;for(const c of chests)if(!c.open&&Math.hypot(x-c.x,y-c.y)<r+7)return true;return false}
+function canMove(x,y,r=5,checkActors=false){return !solidAt(x-r,y-r)&&!solidAt(x+r,y-r)&&!solidAt(x-r,y+r)&&!solidAt(x+r,y+r)&&(!checkActors||!actorBlocked(x,y,r))}
+function moveEntity(e,dx,dy,dt,r=5){let nx=e.x+dx*dt,ny=e.y+dy*dt;if(canMove(nx,e.y,r,true))e.x=nx;if(canMove(e.x,ny,r,true))e.y=ny;}
+function showToast(msg){toastEl.textContent=msg;toastEl.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>toastEl.classList.remove('show'),1800)}
+function openOverlay(html){gameState='modal';overlay.innerHTML=html;overlay.classList.remove('hidden')}
+function closeOverlay(){overlay.classList.add('hidden');overlay.innerHTML='';gameState='play'}
+function readLocalSave(){try{const raw=localStorage.getItem(SAVE)||localStorage.getItem(LEGACY_SAVE);return raw?JSON.parse(raw):null}catch(e){return null}}
+function validSave(d){return !!(d&&d.player&&classes[d.player.classId]&&areaDefs[d.player.area])}
+function applySave(d){if(!validSave(d))return false;freshWorld();player={...player,...d.player};bossDead=!!d.bossDead;areaVisited=d.areaVisited||{};progress=d.progress||{openedChests:{},openedSecrets:{}};progress.openedChests=progress.openedChests||{};progress.openedSecrets=progress.openedSecrets||{};setupArea(player.area,null,true);return true}
+const cloud={user:null,syncState:'guest',timer:null,pending:null,lastError:'',busy:false};
+async function api(path,op

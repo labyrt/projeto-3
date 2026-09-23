@@ -1,0 +1,32 @@
+b>Poções</b>${player.potions}<div class="mini">+35 vida</div></div><div class="slot"><b>Minério</b>${player.ore}<div class="mini">Usado na forja</div></div><div class="slot"><b>Relíquias</b>${player.relics}<div class="mini">Tesouros raros</div></div><div class="slot"><b>Arma</b>+${player.weapon}<div class="mini">Dano ${player.damage}</div></div></div><p class="mini">Classe: ${classes[player.classId].name} · Nível ${player.level}<br>Vida ${Math.ceil(player.hp)}/${player.maxHp} · Energia ${Math.ceil(player.mp)}/${player.maxMp}</p><button class="menuBtn" id="drink">USAR POÇÃO</button></div>`);$('x').onclick=closeOverlay;$('drink').onclick=()=>{usePotion();closeOverlay()}}
+function usePotion(){if(player.potions<=0){showToast('Você não tem poções.');return}if(player.hp>=player.maxHp){showToast('Sua vida já está cheia.');return}player.potions--;player.hp=Math.min(player.maxHp,player.hp+35);burst(player.x,player.y,'#7bc56f',12);showToast('Poção usada: +35 vida.');updateHUD();saveGame()}
+function transition(to){if(portalLock>0)return;let from=player.area;if(to==='forest'&&player.quest===1)player.quest=2;if(to==='dungeon1'&&player.quest===2)player.quest=3;if(to==='dungeon2'&&player.quest===3)player.quest=4;setupArea(to,from);showToast(areaDefs[to].name)}
+function attack(){
+ if(gameState!=='play'||player.attackCd>0)return;let c=classes[player.classId],cost=c.type==='magic'?8:c.type==='ranged'?3:0;if(player.mp<cost){showToast('Energia insuficiente.');return}player.attackCd=player.cool;player.mp-=cost;attackId++;
+ const d=dirVec(player.dir);if(c.type==='melee'){let hit=false;for(const e of enemies){if(e.dead)continue;let vx=e.x-player.x,vy=e.y-player.y,dd=Math.hypot(vx,vy);let dot=(vx*d.x+vy*d.y)/(dd||1);if(dd<player.range+8&&dot>.1){damageEnemy(e,player.damage+player.weapon*2);hit=true}}slashFx();if(hit)shake=3}
+ else {const speed=c.type==='magic'?155:180;projectiles.push({x:player.x+d.x*10,y:player.y+d.y*10,vx:d.x*speed,vy:d.y*speed,life:player.range/speed,dmg:player.damage+player.weapon*2,kind:c.type==='magic'?'magic':'arrow'});}
+ updateHUD();
+}
+function dirVec(d){return d==='left'?{x:-1,y:0}:d==='right'?{x:1,y:0}:d==='up'?{x:0,y:-1}:{x:0,y:1}}
+function damageEnemy(e,d){if(e.dead)return;let crit=Math.random()<(player.classId==='hunter'?.18:.08);if(crit)d=Math.floor(d*1.65);e.hp-=d;e.hit=.12;burst(e.x,e.y,crit?'#f1d36b':'#d9b98a',crit?10:5);if(e.hp<=0)killEnemy(e)}
+function killEnemy(e){e.dead=true;let g=Math.floor(rng(e.gold[0],e.gold[1]+1));player.gold+=g;if(Math.random()<.26)player.ore++;gainXP(e.xp);showToast(`${e.name}: +${g} ouro`);if(e.boss){bossDead=true;player.quest=5;player.relics++;showToast('Guardião derrotado. O coração da cripta silenciou.');flash=1;shake=8;saveGame()}updateHUD()}
+function slashFx(){let d=dirVec(player.dir);for(let i=0;i<8;i++)particles.push({x:player.x+d.x*rng(8,20)+d.y*rng(-9,9),y:player.y+d.y*rng(8,20)+d.x*rng(-9,9),vx:rng(-15,15),vy:rng(-15,15),life:.2,max:.2,color:'#ead9a5',size:1})}
+function burst(x,y,color,n=8){for(let i=0;i<n;i++)particles.push({x,y,vx:rng(-45,45),vy:rng(-45,45),life:rng(.2,.6),max:.6,color,size:Math.random()<.5?1:2})}
+function hurtPlayer(d){if(player.invuln>0)return;d=Math.max(1,Math.floor(d*(1-player.armor)));player.hp-=d;player.invuln=.65;shake=4;flash=.25;burst(player.x,player.y,'#c9584b',10);if(player.hp<=0)gameOver();updateHUD()}
+function gameOver(){player.hp=0;gameState='modal';openOverlay(`<div class="panel"><h2>Você caiu na caçada</h2><p>Os sinos da vila ainda tocam. Você pode retornar a Cendral, mas perderá parte do ouro carregado.</p><div class="menuBtns"><button class="menuBtn" id="resp">RETORNAR À VILA</button><button class="menuBtn" id="menu">MENU PRINCIPAL</button></div></div>`);$('resp').onclick=()=>{player.gold=Math.floor(player.gold*.8);player.hp=player.maxHp;player.mp=player.maxMp;setupArea('village');closeOverlay();showToast('Você perdeu 20% do ouro.')};$('menu').onclick=mainMenu}
+function update(dt){
+ if(gameState!=='play')return;
+ player.attackCd=Math.max(0,player.attackCd-dt);player.invuln=Math.max(0,player.invuln-dt);portalLock=Math.max(0,portalLock-dt);areaFade=Math.max(0,areaFade-dt*1.8);player.mp=Math.min(player.maxMp,player.mp+dt*(player.classId==='occult'?7:4));
+ let dx=(keys.d||keys.arrowright||touchKeys.right?1:0)-(keys.a||keys.arrowleft||touchKeys.left?1:0),dy=(keys.s||keys.arrowdown||touchKeys.down?1:0)-(keys.w||keys.arrowup||touchKeys.up?1:0);isMoving=!!(dx||dy);if(isMoving){let l=Math.hypot(dx,dy);dx/=l;dy/=l;walkPhase+=dt*11;if(Math.abs(dx)>Math.abs(dy))player.dir=dx>0?'right':'left';else player.dir=dy>0?'down':'up';moveEntity(player,dx*player.speed,dy*player.speed,dt,5)}
+ for(const c of chests)c.anim=Math.max(0,(c.anim||0)-dt);
+ for(const e of enemies){if(e.dead)continue;e.hit=Math.max(0,e.hit-dt);e.atk=Math.max(0,e.atk-dt);let dd=dist(player,e);if(dd<125){let vx=(player.x-e.x)/(dd||1),vy=(player.y-e.y)/(dd||1);if(dd>e.r+7)moveEntity(e,vx*e.speed,vy*e.speed,dt,e.r);else if(e.atk<=0){hurtPlayer(e.dmg);e.atk=e.boss?.75:1.05}}}
+ for(let i=0;i<enemies.length;i++)for(let j=i+1;j<enemies.length;j++){let a=enemies[i],b=enemies[j];if(a.dead||b.dead)continue;let dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy)||.001,min=a.r+b.r+2;if(d<min){let push=(min-d)*.5,nx=dx/d,ny=dy/d;let ax=a.x-nx*push,ay=a.y-ny*push,bx=b.x+nx*push,by=b.y+ny*push;if(canMove(ax,ay,a.r,true)){a.x=ax;a.y=ay}if(canMove(bx,by,b.r,true)){b.x=bx;b.y=by}}}
+ for(const p of projectiles){p.life-=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;if(solidAt(p.x,p.y))p.life=0;for(const e of enemies){if(!e.dead&&p.life>0&&Math.hypot(p.x-e.x,p.y-e.y)<e.r+4){damageEnemy(e,p.dmg);p.life=0;break}}}
+ projectiles=projectiles.filter(p=>p.life>0);for(const p of particles){p.life-=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=.92;p.vy*=.92}particles=particles.filter(p=>p.life>0);
+ if(portalLock<=0)for(const p of portals){if(dist(player,p)<10){transition(p.to);break}}
+ flash=Math.max(0,flash-dt);shake=Math.max(0,shake-dt*10);updateHUD();
+}
+function draw(){
+ X.save();let sx=shake?rng(-shake,shake):0,sy=shake?rng(-shake,shake):0;X.translate(sx,sy);drawMap();drawDecor();drawEntities();drawParticles();X.restore();if(flash>0){X.fillStyle=`rgba(255,235,205,${flash*.35})`;X.fillRect(0,0,W,H)}if(areaFade>0){X.fillStyle=`rgba(9,8,6,${Math.min(.85,areaFade)})`;X.fillRect(0,0,W,H)}drawMini();
+}
+function drawMap(){const m=world[player.area],theme=areaDefs[player.area].theme;for(let y=0;y<m.length;y++)for(let x=0;x<m[y].length;x++){let v=m[y][x],xx=x*T,yy=y*T;if(theme==='village'){X.fillStyle=((x+y)%2)?pal

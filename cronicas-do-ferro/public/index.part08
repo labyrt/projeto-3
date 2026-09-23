@@ -1,0 +1,7 @@
+ame]=false};el.addEventListener('pointerdown',on);el.addEventListener('pointerup',off);el.addEventListener('pointercancel',off);el.addEventListener('pointerleave',off)}
+bindHold('up','up');bindHold('down','down');bindHold('left','left');bindHold('right','right');$('atkBtn').addEventListener('pointerdown',e=>{e.preventDefault();attack()});$('useBtn').addEventListener('pointerdown',e=>{e.preventDefault();interact()});$('invBtn').addEventListener('pointerdown',e=>{e.preventDefault();inventory()});
+setInterval(()=>{if(gameState==='play')saveGame()},10000);if('serviceWorker' in navigator && location.protocol!=='file:') navigator.serviceWorker.register('./sw.js').catch(()=>{});initAccount().finally(()=>{mainMenu();requestAnimationFrame(loop)});
+})();
+</script>
+</body>
+</html>
