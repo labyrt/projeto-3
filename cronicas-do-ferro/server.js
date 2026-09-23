@@ -22,10 +22,11 @@ const pool = cloudEnabled
   : null;
 const app = express();
 
-const indexParts = Array.from({ length: 8 }, (_, i) => path.join(__dirname, 'public', `index.part${String(i + 1).padStart(2, '0')}`));
+const fs = require('fs');
+const indexPath = path.join(__dirname, 'public', 'index.html');
 let indexHtml = null;
 function getIndexHtml() {
-  if (!indexHtml) indexHtml = indexParts.map(file => require('fs').readFileSync(file, 'utf8')).join('');
+  if (!indexHtml) indexHtml = fs.readFileSync(indexPath, 'utf8');
   return indexHtml;
 }
 app.set('trust proxy', 1);
@@ -111,8 +112,8 @@ async function migrate() {
 }
 
 app.get('/api/health', async (_req, res) => {
-  if (!cloudEnabled) return res.json({ ok: true, version: 3, cloud: false });
-  try { await pool.query('SELECT 1'); res.json({ ok: true, version: 3, cloud: true }); }
+  if (!cloudEnabled) return res.json({ ok: true, version: 4, cloud: false });
+  try { await pool.query('SELECT 1'); res.json({ ok: true, version: 4, cloud: true }); }
   catch { res.status(503).json({ ok: false, cloud: false }); }
 });
 app.use('/api/auth', (req, res, next) => cloudEnabled ? next() : res.status(503).json({ error: 'Save na nuvem ainda não foi ativado neste servidor.' }));
