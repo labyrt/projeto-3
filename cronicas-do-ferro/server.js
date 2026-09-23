@@ -20,6 +20,13 @@ if (!SESSION_SECRET || SESSION_SECRET.length < 32) throw new Error('SESSION_SECR
 
 const pool = new Pool({ connectionString: DATABASE_URL, ssl: process.env.DB_SSL === 'disable' ? false : { rejectUnauthorized: false }, max: 8 });
 const app = express();
+
+const indexParts = Array.from({ length: 8 }, (_, i) => path.join(__dirname, 'public', `index.part${String(i + 1).padStart(2, '0')}`));
+let indexHtml = null;
+function getIndexHtml() {
+  if (!indexHtml) indexHtml = indexParts.map(file => require('fs').readFileSync(file, 'utf8')).join('');
+  return indexHtml;
+}
 app.set('trust proxy', 1);
 app.disable('x-powered-by');
 app.use(helmet({
@@ -171,7 +178,8 @@ app.put('/api/save', requireAuth, saveLimiter, async (req, res) => {
   }
 });
 
-app.use(express.static(path.join(__dirname, 'public'), { etag: true, maxAge: '1h', extensions: ['html'] }));
+app.get(['/', '/index.html'], (_req, res) => res.type('html').set('Cache-Control','no-cache').send(getIndexHtml()));
+app.use(express.static(path.join(__dirname, 'public'), { etag: true, maxAge: '1h' }));
 
 migrate().then(() => {
   app.listen(PORT, '0.0.0.0', () => console.log(`Crônicas do Ferro online na porta ${PORT}`));
