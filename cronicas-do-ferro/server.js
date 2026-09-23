@@ -23,10 +23,10 @@ const pool = cloudEnabled
 const app = express();
 
 const fs = require('fs');
-const indexPath = path.join(__dirname, 'public', 'index.html');
+const indexParts = Array.from({ length: 5 }, (_, i) => path.join(__dirname, 'public', `index.v4part${String(i + 1).padStart(2, '0')}`));
 let indexHtml = null;
 function getIndexHtml() {
-  if (!indexHtml) indexHtml = fs.readFileSync(indexPath, 'utf8');
+  if (!indexHtml) indexHtml = indexParts.map(file => fs.readFileSync(file, 'utf8')).join('');
   return indexHtml;
 }
 app.set('trust proxy', 1);
