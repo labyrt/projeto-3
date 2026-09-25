@@ -3,7 +3,8 @@
 'use strict';
 const $=id=>document.getElementById(id), C=$('game'),X=C.getContext('2d'),M=$('mini'),MX=M.getContext('2d'),overlay=$('overlay');X.imageSmoothingEnabled=false;MX.imageSmoothingEnabled=false;
 const W=800,H=450,SAVE='cronicas_do_ferro_save_v7',OLD='cronicas_do_ferro_save_v6',LEGACY='cronicas_do_ferro_save_v2';
-const IMG={};let assetsReady=false;function preload(){return Promise.all(Object.entries(ASSET_SRC).map(([k,src])=>new Promise(res=>{const i=new Image();i.onload=()=>{IMG[k]=i;res()};i.onerror=()=>res();i.src=src}))).then(()=>assetsReady=true)}
+const EXTRA_ASSET={villageFar:'/assets/village_far.svg',villageMid:'/assets/village_mid.svg',villageFront:'/assets/village_front.svg',hunterSheet:'/assets/hunter_sheet.svg'};
+const IMG={};let assetsReady=false;function preload(){return Promise.all(Object.entries({...ASSET_SRC,...EXTRA_ASSET}).map(([k,src])=>new Promise(res=>{const i=new Image();i.onload=()=>{IMG[k]=i;res()};i.onerror=()=>res();i.src=src}))).then(()=>assetsReady=true)}
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),rng=(a,b)=>Math.random()*(b-a)+a,dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y),lerp=(a,b,t)=>a+(b-a)*t;
 let keys={},touch={},joyAxis={x:0,y:0},joyPointer=null,attackHeld=false,attackBuffer=0,dodgeBuffer=0,perfectEvadeT=0,hitStop=0,last=0,state='menu',toastTimer=0,sceneTimer=0,shake=0,flash=0,afterimages=[],particles=[],numbers=[],projectiles=[],enemies=[],interactables=[],ambient=[],gameTime=0,wakeLock=null;
 const camera={x:W/2,y:H/2,zoom:1.34,targetZoom:1.34,vx:0,vy:0,lookX:0,lookY:0};let cameraSnap=true;
@@ -33,7 +34,7 @@ const items={
 };
 function starter(cid){return cid==='guardian'?{weapon:'guardian_blade',shield:'oak_shield',armor:'leather',boots:'boots'}:cid==='hunter'?{weapon:'hunter_bow',armor:'leather',boots:'boots'}:{weapon:'occult_staff',armor:'leather',boots:'boots'}}
 const areas={
- village:{name:'Vila de Cendral',art:'village',spawn:[400,330],bounds:{x:70,y:175,w:660,h:235},npcs:[['ilyra',510,305],['smith',250,305],['shop',650,310]],portal:[742,320,'forest'],chest:[150,335,'village_cache']},
+ village:{name:'Vila de Cendral',art:'village',spawn:[400,350],bounds:{x:72,y:235,w:656,h:170},obstacles:[{x:330,y:255,w:140,h:64},{x:72,y:235,w:115,h:42},{x:613,y:235,w:115,h:42}],npcs:[['ilyra',520,340],['smith',245,340],['shop',650,342]],portal:[728,330,'forest'],chest:[145,355,'village_cache']},
  forest:{name:'Bosque de Nargan',art:'forest',spawn:[420,370],bounds:{x:95,y:115,w:625,h:300},portal:[700,132,'dungeon1'],chest:[140,118,'forest_chest']},
  dungeon1:{name:'Ruínas de Eredh',art:'dungeon',spawn:[150,350],bounds:{x:80,y:90,w:650,h:320},obstacles:[{x:352,y:160,w:130,h:120},{x:360,y:318,w:115,h:100}],portal:[675,120,'dungeon2'],chest:[665,205,'dungeon_key'],secret:[145,180]},
  dungeon2:{name:'Abismo do Guardião',art:'boss',spawn:[190,345],bounds:{x:90,y:110,w:620,h:280},portal:[112,340,'dungeon1']}
@@ -67,7 +68,11 @@ function setupArea(id,keep=false){if(!areas[id])id='village';player.area=id;cons
  if(a.npcs)for(const n of a.npcs)interactables.push({type:n[0],x:n[1],y:n[2],r:28});if(a.chest)interactables.push({type:'chest',x:a.chest[0],y:a.chest[1],id:a.chest[2],r:26});if(a.secret)interactables.push({type:'secret',x:a.secret[0],y:a.secret[1],r:30});if(a.portal)interactables.push({type:'portal',x:a.portal[0],y:a.portal[1],to:a.portal[2],r:30});if(id==='forest')interactables.push({type:'portal',x:112,y:390,to:'village',r:30});if(id==='dungeon1')interactables.push({type:'portal',x:105,y:350,to:'forest',r:30});
  if(id==='forest'){spawn('wolf',5,[[500,260],[585,305],[635,225],[410,210],[300,330]]);spawn('slime',2,[[350,260],[540,350]])}if(id==='dungeon1')spawn('skeleton',7,[[260,335],[340,300],[430,250],[520,300],[570,190],[380,150],[250,210]]);if(id==='dungeon2'&&!progress.bossDead)enemies.push(makeEnemy('boss',520,245));refreshAmbient();updateBackdrop();saveGame()}
 function refreshAmbient(){ambient=[];const n=player.area==='dungeon2'?26:18;for(let i=0;i<n;i++)ambient.push({x:rng(0,W),y:rng(0,H),v:rng(3,12),a:rng(.15,.55),s:rng(1,2.5),phase:rng(0,6.28)})}
-function updateBackdrop(){const art=areas[player.area].art;document.getElementById('app').style.backgroundImage=`url(${ASSET_SRC[art]})`}
+function updateBackdrop(){
+ const app=document.getElementById('app');
+ if(player.area==='village'){app.style.backgroundImage='linear-gradient(#111827,#111827)';return}
+ const art=areas[player.area].art;app.style.backgroundImage=`url(${ASSET_SRC[art]})`
+}
 function showScene(id){const e=$('sceneSplash');e.style.backgroundImage=`url(${ASSET_SRC[areas[id].art]})`;$('sceneTitle').textContent=areas[id].name;$('sceneSub').textContent=id==='village'?'Descanso · comércio · histórias':id==='forest'?'Caça · trilhas · segredos':id==='dungeon1'?'Ruínas · armadilhas · relíquias':'Chefe · sobrevivência · recompensa';e.classList.add('on');clearTimeout(sceneTimer);sceneTimer=setTimeout(()=>e.classList.remove('on'),1000)}
 function transition(to){if(player.area==='forest'&&to==='dungeon1'&&progress.killsForest<5){toast(`A trilha ainda está tomada. Derrote ${5-progress.killsForest} monstros.`);return}if(to==='dungeon2'&&!progress.key){toast('A porta antiga exige uma chave.');return}if(player.area==='village'&&to==='forest'&&progress.quest===0){toast('Fale com Ilyra antes de partir.');return}if(progress.quest===1&&to==='forest')progress.quest=2;setupArea(to,false);showScene(to)}
 function spawn(type,n,spots){for(let i=0;i<n;i++){const p=spots[i%spots.length];enemies.push(makeEnemy(type,p[0],p[1]))}}
@@ -287,13 +292,25 @@ function draw(){
  const list=[];for(const e of enemies)if(!e.dead)list.push({y:e.y,fn:()=>drawEnemy(e)});list.push({y:player.y,fn:()=>drawHero(player.x,player.y,player.dir,false)});list.sort((a,b)=>a.y-b.y);list.forEach(r=>r.fn());drawProjectiles();drawFx();X.restore();
  drawForeground();if(flash>0){X.fillStyle=`rgba(255,244,215,${flash*.22})`;X.fillRect(0,0,W,H)}drawMini()
 }
-function drawBackground(){const im=IMG[areas[player.area].art];if(!im){X.fillStyle='#18202a';X.fillRect(0,0,W,H);return}
+function drawBackground(){
+ if(player.area==='village'&&IMG.villageFar){
+   screenParallax(IMG.villageFar,.13,1.08,1);
+   X.save();worldTransform();
+   if(IMG.villageMid)X.drawImage(IMG.villageMid,0,0,W,H);
+   X.restore();
+   X.fillStyle='rgba(255,174,88,.035)';X.fillRect(0,0,W,H);return;
+ }
+ const im=IMG[areas[player.area].art];if(!im){X.fillStyle='#18202a';X.fillRect(0,0,W,H);return}
  screenParallax(im,.20,1.05,1);X.fillStyle='rgba(2,6,12,.08)';X.fillRect(0,0,W,H);
  X.save();worldTransform();X.globalAlpha=.96;X.drawImage(im,0,0,W,H);X.restore();
  const haze=player.area==='forest'?'rgba(92,130,166,.08)':player.area==='dungeon2'?'rgba(104,45,150,.10)':'rgba(255,186,92,.035)';X.fillStyle=haze;X.fillRect(0,0,W,H)
 }
 function drawForeground(){
- const drift=(camera.x-W/2)*.16, bob=Math.sin(gameTime*.7)*3;X.save();X.globalAlpha=.22;
+ if(player.area==='village'&&IMG.villageFront){
+   const dx=-(camera.x-W/2)*.055,dy=-(camera.y-H/2)*.035;
+   X.save();X.translate(dx,dy);X.drawImage(IMG.villageFront,0,0,W,H);X.restore();return;
+ }
+ const drift=(camera.x-W/2)*.16,bob=Math.sin(gameTime*.7)*3;X.save();X.globalAlpha=.22;
  X.fillStyle=player.area.startsWith('dungeon')?'#160e22':'#07150f';
  X.beginPath();X.ellipse(-28-drift*.25,H*.76+bob,110,170,-.35,0,Math.PI*2);X.fill();
  X.beginPath();X.ellipse(W+34-drift*.18,H*.70-bob,125,185,.28,0,Math.PI*2);X.fill();
@@ -305,6 +322,18 @@ function drawNpc(o){const bob=Math.sin(gameTime*3+o.x)*1.5;X.save();X.translate(
 function drawChest(x,y){X.save();X.translate(x,y);pxRect(-12,-7,24,14,'#6f3d20');pxRect(-12,-2,24,4,'#d1a03f');pxRect(-2,-6,4,12,'#d1a03f');pxRect(-10,-9,20,4,'#8a5229');X.restore()}
 function pxRect(x,y,w,h,c){X.fillStyle=c;X.fillRect(Math.round(x),Math.round(y),Math.round(w),Math.round(h))}
 function drawHero(x,y,dir,ghost){
+ if(player.classId==='hunter'&&IMG.hunterSheet){
+   const speed=Math.hypot(player.vx,player.vy),moving=speed>18;
+   let frame=0;if(player.dashT>0)frame=4;else if(player.attackAnim>0)frame=5+Math.min(2,Math.floor((1-player.attackAnim/(player.attackAnimMax||.28))*3));else if(moving)frame=1+(Math.floor(gameTime*10)%3);
+   const sw=96,sh=128,sx=frame*sw;
+   X.save();X.translate(Math.round(x),Math.round(y+10));if(dir==='left')X.scale(-1,1);
+   if(ghost)X.globalAlpha=.22;else if(player.invuln>0&&Math.floor(gameTime*20)%2===0)X.globalAlpha=.45;
+   X.fillStyle='#0006';X.beginPath();X.ellipse(0,4,18,6,0,0,Math.PI*2);X.fill();
+   X.drawImage(IMG.hunterSheet,sx,0,sw,sh,-30,-70,60,80);X.restore();return;
+ }
+ drawHeroFallback(x,y,dir,ghost)
+}
+function drawHeroFallback(x,y,dir,ghost){
  const c=player.classId,speed=Math.hypot(player.vx,player.vy),moving=speed>8;
  const walk=Math.sin(gameTime*(11+Math.min(5,speed/80)))*2*(moving?1:0),idle=Math.sin(gameTime*3.2)*.7;
  const animMax=player.attackAnimMax||.28,attack=player.attackAnim>0?clamp(1-player.attackAnim/animMax,0,1):0,strike=player.attackAnim>0?Math.sin(attack*Math.PI):0,dv=dirVec(dir);
