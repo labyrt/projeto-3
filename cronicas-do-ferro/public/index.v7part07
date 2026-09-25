@@ -5,7 +5,7 @@ const $=id=>document.getElementById(id), C=$('game'),X=C.getContext('2d'),M=$('m
 const W=800,H=450,SAVE='cronicas_do_ferro_save_v7',OLD='cronicas_do_ferro_save_v6',LEGACY='cronicas_do_ferro_save_v2';
 const IMG={};let assetsReady=false;function preload(){return Promise.all(Object.entries(ASSET_SRC).map(([k,src])=>new Promise(res=>{const i=new Image();i.onload=()=>{IMG[k]=i;res()};i.onerror=()=>res();i.src=src}))).then(()=>assetsReady=true)}
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),rng=(a,b)=>Math.random()*(b-a)+a,dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y),lerp=(a,b,t)=>a+(b-a)*t;
-let keys={},touch={},joyAxis={x:0,y:0},joyPointer=null,attackHeld=false,attackBuffer=0,dodgeBuffer=0,hitStop=0,last=0,state='menu',toastTimer=0,sceneTimer=0,shake=0,flash=0,afterimages=[],particles=[],numbers=[],projectiles=[],enemies=[],interactables=[],ambient=[],gameTime=0,wakeLock=null;
+let keys={},touch={},joyAxis={x:0,y:0},joyPointer=null,attackHeld=false,attackBuffer=0,dodgeBuffer=0,perfectEvadeT=0,hitStop=0,last=0,state='menu',toastTimer=0,sceneTimer=0,shake=0,flash=0,afterimages=[],particles=[],numbers=[],projectiles=[],enemies=[],interactables=[],ambient=[],gameTime=0,wakeLock=null;
 const camera={x:W/2,y:H/2,zoom:1.34,targetZoom:1.34,vx:0,vy:0,lookX:0,lookY:0};let cameraSnap=true;
 
 const cloud={user:null,status:'checking',timer:null,pending:null,lastError:''};
@@ -39,7 +39,10 @@ const areas={
  dungeon2:{name:'Abismo do Guardião',art:'boss',spawn:[190,345],bounds:{x:90,y:110,w:620,h:280},portal:[112,340,'dungeon1']}
 };
 let player=null,progress={quest:0,killsForest:0,key:false,bossDead:false,opened:{},secret:false,weaponUp:0};
-function newPlayer(cid){const c=classes[cid],eq=starter(cid);return{x:areas.village.spawn[0],y:areas.village.spawn[1],vx:0,vy:0,dir:'up',classId:cid,area:'village',hp:c.hp,maxHp:c.hp,mp:c.mp,maxMp:c.mp,atk:c.atk,def:c.def,speed:c.speed,level:1,xp:0,xpNext:60,gold:45,ore:1,potions:3,relics:0,attackCd:0,skillCd:0,dodgeCd:0,invuln:0,attackAnim:0,attackKind:'',combo:0,comboT:0,dashT:0,inventory:Object.values(eq),equipment:eq};}
+function newPlayer(cid){
+ const c=classes[cid],eq=starter(cid);
+ return{x:areas.village.spawn[0],y:areas.village.spawn[1],vx:0,vy:0,dir:'up',classId:cid,area:'village',hp:c.hp,maxHp:c.hp,mp:c.mp,maxMp:c.mp,atk:c.atk,def:c.def,speed:c.speed,level:1,xp:0,xpNext:60,gold:45,ore:1,potions:3,relics:0,attackCd:0,skillCd:0,dodgeCd:0,invuln:0,attackAnim:0,attackAnimMax:.28,attackKind:'',combo:0,comboT:0,dashT:0,dashSpeed:0,stepFxT:0,inventory:Object.values(eq),equipment:eq};
+}
 function equipBonus(k){let s=0;for(const id of Object.values(player.equipment||{})){const it=items[id];if(it)s+=it[k]||0}return s}function atkPower(){return player.atk+equipBonus('atk')+progress.weaponUp*3}function moveSpeed(){return player.speed+equipBonus('agi')*.8}function armor(){return clamp(player.def+equipBonus('def')/180,0,.62)}
 function questText(){return['Fale com Ilyra na vila','Atravesse o Bosque de Nargan','Derrote 5 monstros no bosque','Encontre a chave antiga nas Ruínas de Eredh','Derrote o Guardião do Abismo','Volte para Ilyra em Cendral','Cendral está segura — continue explorando'][progress.quest]||'Explore o mundo'}
 function addItem(id){if(!items[id])return;if(!player.inventory.includes(id)){player.inventory.push(id);toast('Novo equipamento: '+items[id].name)}else{player.gold+=18;toast('Item duplicado convertido em 18 ouro')}}
@@ -70,12 +73,112 @@ function transition(to){if(player.area==='forest'&&to==='dungeon1'&&progress.kil
 function spawn(type,n,spots){for(let i=0;i<n;i++){const p=spots[i%spots.length];enemies.push(makeEnemy(type,p[0],p[1]))}}
 function makeEnemy(type,x,y){const db={wolf:{name:'Lobo sombrio',hp:54,dmg:10,speed:82,range:28,xp:13,gold:[4,10],r:16},slime:{name:'Limo da mata',hp:42,dmg:8,speed:48,range:25,xp:10,gold:[3,8],r:17},skeleton:{name:'Jurado de Eredh',hp:82,dmg:14,speed:62,range:31,xp:20,gold:[7,15],r:17},boss:{name:'Guardião do Abismo',hp:720,dmg:20,speed:48,range:52,xp:220,gold:[150,210],r:38,boss:true}}[type];return{id:Math.random().toString(36).slice(2),type,x,y,vx:0,vy:0,hp:db.hp,maxHp:db.hp,...db,state:'chase',timer:0,windup:0,hit:0,dead:false,phase:1,pattern:1.5}}
 function nearestEnemy(max=999){let best=null,bd=max;for(const e of enemies)if(!e.dead){const d=dist(player,e);if(d<bd){bd=d;best=e}}return best}
-function aim(){const e=nearestEnemy(280);if(e){const dx=e.x-player.x,dy=e.y-player.y,l=Math.hypot(dx,dy)||1;return{x:dx/l,y:dy/l}}return dirVec(player.dir)}function dirVec(d){return d==='left'?{x:-1,y:0}:d==='right'?{x:1,y:0}:d==='up'?{x:0,y:-1}:{x:0,y:1}}
-function queueAttack(){if(state!=='play')return;attackBuffer=.18;if(player.attackCd<=0&&player.dashT<=0)attack()}function attack(){if(state!=='play'||player.attackCd>0||player.dashT>0)return;attackBuffer=0;haptic(9);const c=classes[player.classId];player.attackCd=c.cool;player.attackAnim=.28;player.combo=player.comboT>0?Math.min(3,player.combo+1):1;player.comboT=.72;player.attackKind='basic';const p=atkPower();if(player.classId==='guardian'){const d=aim();player.dir=Math.abs(d.x)>Math.abs(d.y)?(d.x>0?'right':'left'):(d.y>0?'down':'up');const range=55+player.combo*3;for(const e of enemies)if(!e.dead){const dx=e.x-player.x,dy=e.y-player.y,dd=Math.hypot(dx,dy),dot=(dx*d.x+dy*d.y)/(dd||1);if(dd<range&&dot>-.05)damageEnemy(e,Math.round(p*(player.combo===3?1.38:1)))}slashFx(d,player.combo)}else{const d=aim(),speed=player.classId==='hunter'?360:300;projectiles.push({owner:'p',x:player.x+d.x*18,y:player.y+d.y*18,vx:d.x*speed,vy:d.y*speed,life:1.1,dmg:p,kind:player.classId==='hunter'?'arrow':'magic',r:5,pierce:0,hit:new Set()});burst(player.x+d.x*18,player.y+d.y*18,player.classId==='hunter'?'#b7da7a':'#be83ff',6)}}
-function skill(){if(state!=='play'||player.skillCd>0||player.dashT>0)return;haptic([10,18,10]);const c=classes[player.classId];const cost=player.classId==='guardian'?20:player.classId==='hunter'?26:34;if(player.mp<cost){toast('Energia insuficiente.');return}player.mp-=cost;player.skillCd=c.skillCd;player.attackAnim=.45;player.attackKind='skill';if(player.classId==='guardian'){for(const e of enemies)if(!e.dead&&dist(player,e)<105){damageEnemy(e,Math.round(atkPower()*1.45));knock(e,player,22)}ring(player.x,player.y,110,'#77b9ff')}else if(player.classId==='hunter'){const d=aim(),base=Math.atan2(d.y,d.x);for(let k=-2;k<=2;k++){const a=base+k*.10;projectiles.push({owner:'p',x:player.x,y:player.y,vx:Math.cos(a)*390,vy:Math.sin(a)*390,life:1,dmg:Math.round(atkPower()*.72),kind:'arrow',r:4,pierce:1,hit:new Set()})}burst(player.x,player.y,'#99e27d',16)}else{const e=nearestEnemy(260),tx=e?e.x:player.x+aim().x*120,ty=e?e.y:player.y+aim().y*120;ring(tx,ty,90,'#c56fff');for(const q of enemies)if(!q.dead&&Math.hypot(q.x-tx,q.y-ty)<90)damageEnemy(q,Math.round(atkPower()*1.55));burst(tx,ty,'#d28cff',28)}toast(c.skill)}
-function dodge(){if(state!=='play')return;if(player.dodgeCd>0||player.dashT>0){dodgeBuffer=.14;return}dodgeBuffer=0;haptic(12);let dx=joyAxis.x+(keys.d||keys.arrowright?1:0)-(keys.a||keys.arrowleft?1:0),dy=joyAxis.y+(keys.s||keys.arrowdown?1:0)-(keys.w||keys.arrowup?1:0);if(!dx&&!dy){const d=dirVec(player.dir);dx=d.x;dy=d.y}else{const l=Math.hypot(dx,dy);dx/=l;dy/=l}player.dashT=.18;player.dashX=dx;player.dashY=dy;player.vx=dx*520;player.vy=dy*520;player.dodgeCd=.82;player.invuln=.34;afterimages.push({x:player.x,y:player.y,t:.24,dir:player.dir})}
+function aim(){
+ const speed=Math.hypot(player.vx,player.vy);
+ const face=speed>24?{x:player.vx/speed,y:player.vy/speed}:dirVec(player.dir);
+ let best=null,bestScore=1e9;
+ for(const e of enemies)if(!e.dead){
+   const dx=e.x-player.x,dy=e.y-player.y,d=Math.hypot(dx,dy);
+   if(d>310)continue;
+   const dot=(dx*face.x+dy*face.y)/(d||1);
+   if(dot<-.35&&d>72)continue;
+   const score=d*(1.18-dot*.34)-(e.boss?20:0);
+   if(score<bestScore){best=e;bestScore=score}
+ }
+ if(best){
+   const dx=best.x-player.x,dy=best.y-player.y,l=Math.hypot(dx,dy)||1;
+   return{x:dx/l,y:dy/l,target:best};
+ }
+ return face;
+}function dirVec(d){return d==='left'?{x:-1,y:0}:d==='right'?{x:1,y:0}:d==='up'?{x:0,y:-1}:{x:0,y:1}}
+function queueAttack(){
+ if(state!=='play')return;
+ attackBuffer=.20;
+ if(player.attackCd<=0&&player.dashT<=0)attack();
+}function attack(){
+ if(state!=='play'||player.attackCd>0||player.dashT>0)return;
+ attackBuffer=0;haptic(9);
+ const c=classes[player.classId];
+ player.combo=player.comboT>0?Math.min(3,player.combo+1):1;player.comboT=.82;player.attackKind='basic';
+ const step=player.combo-1,d=aim(),p=atkPower();
+ player.dir=Math.abs(d.x)>Math.abs(d.y)?(d.x>0?'right':'left'):(d.y>0?'down':'up');
+
+ const cdTable=player.classId==='guardian'?[.82,.74,1]:player.classId==='hunter'?[.80,.72,.90]:[.86,.78,.94];
+ const animTable=player.classId==='guardian'?[.24,.22,.30]:player.classId==='hunter'?[.20,.18,.24]:[.24,.22,.28];
+ const anim=animTable[step];player.attackCd=c.cool*cdTable[step];player.attackAnimMax=anim;player.attackAnim=anim;
+
+ const lungeTable=player.classId==='guardian'?[6,9,13]:player.classId==='hunter'?[2,3,5]:[1,2,4];
+ const lunge=lungeTable[step],ox=player.x,oy=player.y;
+ player.x+=d.x*lunge;clampPlayer();if(inObstacle(player.x,player.y))player.x=ox;
+ player.y+=d.y*lunge;clampPlayer();if(inObstacle(player.x,player.y))player.y=oy;
+
+ if(player.classId==='guardian'){
+   const mult=[.92,1.06,1.48][step],range=[58,64,73][step],minDot=[.08,.04,-.02][step];
+   for(const e of enemies)if(!e.dead){
+     const ex=e.x-player.x,ey=e.y-player.y,dd=Math.hypot(ex,ey),dot=(ex*d.x+ey*d.y)/(dd||1);
+     if(dd<range&&dot>minDot)damageEnemy(e,Math.round(p*mult));
+   }
+   slashFx(d,player.combo);
+ }else{
+   const hunter=player.classId==='hunter',mult=hunter?[.90,1,1.24][step]:[.95,1.08,1.35][step],shotSpeed=hunter?400:335;
+   projectiles.push({owner:'p',x:player.x+d.x*18,y:player.y+d.y*18,vx:d.x*shotSpeed,vy:d.y*shotSpeed,life:1.14,dmg:Math.round(p*mult),kind:hunter?'arrow':'magic',r:step===2?6:5,pierce:step===2?1:0,hit:new Set(),finisher:step===2});
+   burst(player.x+d.x*18,player.y+d.y*18,hunter?'#b7da7a':'#be83ff',step===2?10:6);
+ }
+ if(player.combo===3){shake=Math.max(shake,2.6);ring(player.x+d.x*20,player.y+d.y*20,28,'#ffe07a')}
+}
+function skill(){
+ if(state!=='play'||player.skillCd>0||player.dashT>0)return;
+ haptic([10,18,10]);const c=classes[player.classId],cost=player.classId==='guardian'?20:player.classId==='hunter'?26:34;
+ if(player.mp<cost){toast('Energia insuficiente.');return}
+ player.mp-=cost;player.skillCd=c.skillCd;player.attackAnimMax=.45;player.attackAnim=.45;player.attackKind='skill';
+ if(player.classId==='guardian'){
+   for(const e of enemies)if(!e.dead&&dist(player,e)<105){damageEnemy(e,Math.round(atkPower()*1.45));knock(e,player,22)}
+   ring(player.x,player.y,110,'#77b9ff');
+ }else if(player.classId==='hunter'){
+   const d=aim(),base=Math.atan2(d.y,d.x);
+   for(let k=-2;k<=2;k++){const a=base+k*.10;projectiles.push({owner:'p',x:player.x,y:player.y,vx:Math.cos(a)*390,vy:Math.sin(a)*390,life:1,dmg:Math.round(atkPower()*.72),kind:'arrow',r:4,pierce:1,hit:new Set()})}
+   burst(player.x,player.y,'#99e27d',16);
+ }else{
+   const e=nearestEnemy(260),tx=e?e.x:player.x+aim().x*120,ty=e?e.y:player.y+aim().y*120;
+   ring(tx,ty,90,'#c56fff');
+   for(const q of enemies)if(!q.dead&&Math.hypot(q.x-tx,q.y-ty)<90)damageEnemy(q,Math.round(atkPower()*1.55));
+   burst(tx,ty,'#d28cff',28);
+ }
+ toast(c.skill);
+}
+function dodge(){
+ if(state!=='play')return;
+ if(player.dodgeCd>0||player.dashT>0){dodgeBuffer=.16;return}
+ dodgeBuffer=0;
+ const threatened=enemies.some(e=>!e.dead&&e.windup>0&&e.windup<.24&&dist(player,e)<e.range+52)
+   ||projectiles.some(p=>p.owner==='e'&&Math.hypot(p.x-player.x,p.y-player.y)<72);
+ haptic(threatened?[10,18,10]:12);
+ let dx=joyAxis.x+(keys.d||keys.arrowright?1:0)-(keys.a||keys.arrowleft?1:0),dy=joyAxis.y+(keys.s||keys.arrowdown?1:0)-(keys.w||keys.arrowup?1:0);
+ if(!dx&&!dy){const d=dirVec(player.dir);dx=d.x;dy=d.y}else{const l=Math.hypot(dx,dy)||1;dx/=l;dy/=l}
+ const hunter=player.classId==='hunter';
+ player.dashT=hunter?.23:.21;player.dashSpeed=hunter?610:560;player.dashX=dx;player.dashY=dy;
+ player.vx=dx*player.dashSpeed;player.vy=dy*player.dashSpeed;player.dodgeCd=hunter?.68:.78;player.invuln=threatened?.46:.34;
+ player.attackAnim=0;player.attackKind='';player.attackCd=Math.min(player.attackCd,.12);attackBuffer=0;
+ afterimages.push({x:player.x,y:player.y,t:.24,dir:player.dir});
+ if(threatened){
+   perfectEvadeT=.65;player.mp=Math.min(player.maxMp,player.mp+18);player.dodgeCd*=.5;hitStop=Math.max(hitStop,.045);
+   flash=Math.max(flash,.28);shake=Math.max(shake,3);ring(player.x,player.y,42,'#9bdcff');toast('Esquiva perfeita · +18 PM');
+ }
+}
 function hurt(amount){if(player.invuln>0||state!=='play')return;haptic([18,22,14]);const dmg=Math.max(1,Math.round(amount*(1-armor())));player.hp-=dmg;player.invuln=.58;shake=8;flash=.3;numbers.push({x:player.x,y:player.y-28,text:'-'+dmg,c:'#ff8a7b',t:.8});burst(player.x,player.y,'#e65d55',12);if(player.hp<=0)gameOver()}
-function damageEnemy(e,dmg){if(e.dead)return;hitStop=Math.max(hitStop,e.boss?.032:.022);const crit=Math.random()<(player.classId==='hunter'?.16:.08);if(crit)dmg=Math.round(dmg*1.55);e.hp-=dmg;e.hit=.12;numbers.push({x:e.x,y:e.y-e.r-10,text:(crit?'✦ ':'')+dmg,c:crit?'#ffe181':'#fff0c2',t:.75});burst(e.x,e.y,crit?'#ffd76d':'#d7c6a0',crit?11:6);if(e.hp<=0)killEnemy(e)}
+function damageEnemy(e,dmg){
+ if(e.dead)return;
+ const finisher=player.combo===3&&player.attackKind==='basic';
+ hitStop=Math.max(hitStop,e.boss?(finisher?.042:.030):(finisher?.040:.024));
+ const crit=Math.random()<(player.classId==='hunter'?.16:.08);if(crit)dmg=Math.round(dmg*1.55);
+ e.hp-=dmg;e.hit=.12;e.stagger=Math.max(e.stagger||0,e.boss?.02:(finisher?.13:.085));
+ if(!e.boss)knock(e,player,finisher?10:4);
+ if(player.attackKind==='basic')player.mp=Math.min(player.maxMp,player.mp+(player.classId==='hunter'?2.2:1.6));
+ shake=Math.max(shake,finisher?3.6:1.4);
+ numbers.push({x:e.x,y:e.y-e.r-10,text:(crit?'✦ ':'')+dmg,c:crit?'#ffe181':'#fff0c2',t:.75});
+ burst(e.x,e.y,crit?'#ffd76d':'#d7c6a0',crit?11:finisher?9:6);if(finisher)ring(e.x,e.y,30,'#ffe07a');
+ if(e.hp<=0)killEnemy(e);
+}
 function knock(e,from,n){const dx=e.x-from.x,dy=e.y-from.y,l=Math.hypot(dx,dy)||1;e.x+=dx/l*n;e.y+=dy/l*n;clampEntity(e)}
 function killEnemy(e){e.dead=true;const g=Math.floor(rng(e.gold[0],e.gold[1]+1));player.gold+=g;gainXp(e.xp);if(Math.random()<.22)player.ore++;if(player.area==='forest'){progress.killsForest++;if(progress.quest===2&&progress.killsForest>=5){progress.quest=3;toast('A trilha para as ruínas foi liberada.')}}if(e.boss){progress.bossDead=true;progress.quest=5;player.relics++;addItem('warden');toast('Guardião derrotado. Volte para Ilyra.');flash=.8;shake=16}saveGame()}
 function gainXp(n){player.xp+=n;while(player.xp>=player.xpNext){player.xp-=player.xpNext;player.level++;player.xpNext=Math.round(player.xpNext*1.33);player.maxHp+=12;player.maxMp+=7;player.atk+=2;player.hp=player.maxHp;player.mp=player.maxMp;toast('Nível '+player.level+' — atributos aumentados.')}}
@@ -92,24 +195,85 @@ function secret(o){if(progress.secret)return toast('A passagem já está aberta.
 function modal(html){state='modal';overlay.className='';overlay.style.backgroundImage='none';overlay.classList.remove('hidden');overlay.innerHTML=`<div class="modal"><button class="close" id="close">×</button>${html}</div>`;const c=$('close');if(c)c.onclick=closeModal}function closeModal(){overlay.classList.add('hidden');overlay.innerHTML='';overlay.style.backgroundImage='none';state='play';updateBackdrop()}
 function inventory(tab='equip',selected=null){if(state!=='play'&&state!=='modal')return;state='modal';const inv=player.inventory.filter(id=>items[id]);const sel=selected&&items[selected]?selected:(inv[0]||null),it=sel?items[sel]:null;const eq=player.equipment||{};const slots=['helm','amulet','armor','ring','weapon','shield','boots'];overlay.className='';overlay.style.backgroundImage='none';overlay.classList.remove('hidden');overlay.innerHTML=`<div class="modal" style="width:min(1100px,98vw)"><button class="close" id="close">×</button><h2>Inventário</h2><div class="invGrid"><div class="heroCard" style="background-image:url(${ASSET_SRC[classes[player.classId].portrait]})"><div class="heroMeta"><h3>${classes[player.classId].name}</h3><div class="miniTxt">Nível ${player.level} · Poder ${atkPower()}</div></div></div><div><div class="equipSlots">${slots.map(s=>{const id=eq[s],x=id?items[id]:null;return`<div class="slot"><b>${slotLabel(s)}</b>${x?`<span class="ico">${x.ico}</span><em>${x.name}</em>`:'<em>vazio</em>'}</div>`}).join('')}</div><div class="invTabs"><button class="tab ${tab==='equip'?'on':''}" data-t="equip">Equipamentos</button><button class="tab ${tab==='cons'?'on':''}" data-t="cons">Consumíveis</button><button class="tab ${tab==='mat'?'on':''}" data-t="mat">Materiais</button><button class="tab ${tab==='rel'?'on':''}" data-t="rel">Relíquias</button></div>${tab==='equip'?`<div class="itemGrid">${inv.map(id=>{const x=items[id];return`<button class="item ${sel===id?'sel':''} ${x.rar==='Raro'?'rare':x.rar==='Lendário'?'legend':''}" data-item="${id}"><span class="ico">${x.ico}</span><small>${x.name}</small></button>`}).join('')}</div>`:tab==='cons'?`<div class="row"><b>🧪 Poções de Ervas</b><span>${player.potions}</span></div>`:tab==='mat'?`<div class="row"><b>⛏ Minério</b><span>${player.ore}</span></div><div class="row"><b>🪙 Ouro</b><span>${player.gold}</span></div>`:`<div class="row"><b>💠 Relíquias do Abismo</b><span>${player.relics}</span></div>`}</div><div class="detail">${it?`<div class="bigIco">${it.ico}</div><h3>${it.name}</h3><div class="rarity ${it.rar==='Lendário'?'lg':it.rar==='Raro'?'ep':''}">${it.rar}</div><div class="statTable miniTxt">${it.atk?`Ataque +${it.atk}<br>`:''}${it.def?`Defesa +${it.def}<br>`:''}${it.agi?`Agilidade +${it.agi}<br>`:''}</div><p class="miniTxt">${it.desc}</p><div class="actionBar"><button class="menuBtn primary" id="equip">EQUIPAR</button></div>`:`<h3>Atributos</h3><div class="miniTxt">PV ${Math.ceil(player.hp)}/${player.maxHp}<br>PM ${Math.ceil(player.mp)}/${player.maxMp}<br>Ataque ${atkPower()}<br>Redução de dano ${Math.round(armor()*100)}%<br>Velocidade ${Math.round(moveSpeed())}</div>`}</div></div><div class="actionBar"><button class="menuBtn" id="usePotion">USAR POÇÃO (${player.potions})</button><button class="menuBtn" id="backInv">VOLTAR AO JOGO</button></div></div>`;$('close').onclick=$('backInv').onclick=closeModal;overlay.querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>inventory(b.dataset.t,sel));overlay.querySelectorAll('[data-item]').forEach(b=>b.onclick=()=>inventory('equip',b.dataset.item));if($('equip'))$('equip').onclick=()=>{if(!it)return;player.equipment[it.slot]=sel;toast(it.name+' equipado.');saveGame();inventory('equip',sel)};$('usePotion').onclick=()=>{usePotion();inventory(tab,sel)}}
 function slotLabel(s){return{weapon:'Arma',shield:'Escudo',helm:'Elmo',armor:'Armadura',boots:'Botas',ring:'Anel',amulet:'Amuleto'}[s]||s}function contextUse(){if(nearInteract())interact();else usePotion()}function usePotion(){if(player.potions<=0)return toast('Você não possui poções.');if(player.hp>=player.maxHp)return toast('Sua vida já está cheia.');player.potions--;haptic(10);player.hp=Math.min(player.maxHp,player.hp+48);burst(player.x,player.y,'#79d77b',18);toast('+48 PV');saveGame()}
-function update(dt){if(state!=='play')return;gameTime+=dt;attackBuffer=Math.max(0,attackBuffer-dt);dodgeBuffer=Math.max(0,dodgeBuffer-dt);player.attackCd=Math.max(0,player.attackCd-dt);player.skillCd=Math.max(0,player.skillCd-dt);player.dodgeCd=Math.max(0,player.dodgeCd-dt);if(dodgeBuffer>0&&player.dodgeCd<=0&&player.dashT<=0)dodge();player.invuln=Math.max(0,player.invuln-dt);player.attackAnim=Math.max(0,player.attackAnim-dt);player.comboT=Math.max(0,player.comboT-dt);if(player.comboT<=0)player.combo=0;player.mp=Math.min(player.maxMp,player.mp+dt*(player.classId==='occult'?11:7));
- if(attackHeld&&player.attackCd<=0&&player.dashT<=0)queueAttack();if(attackBuffer>0&&player.attackCd<=0&&player.dashT<=0)attack();let dx=joyAxis.x+(keys.d||keys.arrowright?1:0)-(keys.a||keys.arrowleft?1:0),dy=joyAxis.y+(keys.s||keys.arrowdown?1:0)-(keys.w||keys.arrowup?1:0);let inputMag=Math.min(1,Math.hypot(dx,dy));if(inputMag>.12){const dead=.12;inputMag=clamp((inputMag-dead)/(1-dead),0,1);const l=Math.hypot(dx,dy);dx/=l;dy/=l;if(Math.abs(dx)>Math.abs(dy))player.dir=dx>0?'right':'left';else player.dir=dy>0?'down':'up'}else{dx=0;dy=0;inputMag=0}const targetSpeed=player.dashT>0?520:moveSpeed()*(inputMag?Math.max(.38,inputMag):0);if(player.dashT>0){player.dashT-=dt;dx=player.dashX;dy=player.dashY;if(Math.random()<.55)afterimages.push({x:player.x,y:player.y,t:.18,dir:player.dir})}const accel=1-Math.exp(-dt*16);player.vx=lerp(player.vx,dx*targetSpeed,accel);player.vy=lerp(player.vy,dy*targetSpeed,accel);if(!dx&&!dy&&player.dashT<=0){player.vx*=Math.pow(.0001,dt);player.vy*=Math.pow(.0001,dt)}const oldX=player.x,oldY=player.y;player.x+=player.vx*dt;clampPlayer();if(inObstacle(player.x,player.y)){player.x=oldX;player.vx=0}player.y+=player.vy*dt;clampPlayer();if(inObstacle(player.x,player.y)){player.y=oldY;player.vy=0}
- updateEnemies(dt);updateProjectiles(dt);for(const p of particles){p.t-=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=.97;p.vy*=.97}particles=particles.filter(p=>p.t>0);for(const n of numbers){n.t-=dt;n.y-=22*dt}numbers=numbers.filter(n=>n.t>0);for(const a of afterimages)a.t-=dt;afterimages=afterimages.filter(a=>a.t>0);shake=Math.max(0,shake-dt*18);flash=Math.max(0,flash-dt*2.5);updateCamera(dt);updateHud();updateHint()}
+function update(dt){
+ if(state!=='play')return;
+ gameTime+=dt;attackBuffer=Math.max(0,attackBuffer-dt);dodgeBuffer=Math.max(0,dodgeBuffer-dt);perfectEvadeT=Math.max(0,perfectEvadeT-dt);
+ player.attackCd=Math.max(0,player.attackCd-dt);player.skillCd=Math.max(0,player.skillCd-dt);player.dodgeCd=Math.max(0,player.dodgeCd-dt);
+ if(dodgeBuffer>0&&player.dodgeCd<=0&&player.dashT<=0)dodge();
+ player.invuln=Math.max(0,player.invuln-dt);player.attackAnim=Math.max(0,player.attackAnim-dt);player.comboT=Math.max(0,player.comboT-dt);player.stepFxT=Math.max(0,(player.stepFxT||0)-dt);
+ if(player.comboT<=0)player.combo=0;player.mp=Math.min(player.maxMp,player.mp+dt*(player.classId==='occult'?11:7));
+ if(attackHeld&&player.attackCd<=0&&player.dashT<=0)queueAttack();if(attackBuffer>0&&player.attackCd<=0&&player.dashT<=0)attack();
+
+ let dx=joyAxis.x+(keys.d||keys.arrowright?1:0)-(keys.a||keys.arrowleft?1:0),dy=joyAxis.y+(keys.s||keys.arrowdown?1:0)-(keys.w||keys.arrowup?1:0);
+ let inputMag=Math.min(1,Math.hypot(dx,dy));
+ if(inputMag>.12){
+   const dead=.12;inputMag=clamp((inputMag-dead)/(1-dead),0,1);const l=Math.hypot(dx,dy)||1;dx/=l;dy/=l;
+   if(Math.abs(dx)>Math.abs(dy))player.dir=dx>0?'right':'left';else player.dir=dy>0?'down':'up';
+ }else{dx=0;dy=0;inputMag=0}
+
+ if(player.dashT>0){
+   player.dashT=Math.max(0,player.dashT-dt);dx=player.dashX;dy=player.dashY;
+   const dashSpeed=player.dashSpeed||560;player.vx=dx*dashSpeed;player.vy=dy*dashSpeed;
+   if(Math.random()<.72)afterimages.push({x:player.x,y:player.y,t:.18,dir:player.dir});
+ }else{
+   const attackMove=player.attackAnim>0&&player.attackKind==='basic'?(player.classId==='hunter'?.92:player.classId==='occult'?.80:.62):1;
+   const analog=inputMag?Math.max(.22,inputMag):0,targetSpeed=moveSpeed()*analog*attackMove,accel=1-Math.exp(-dt*22);
+   player.vx=lerp(player.vx,dx*targetSpeed,accel);player.vy=lerp(player.vy,dy*targetSpeed,accel);
+   if(!dx&&!dy){const stop=Math.exp(-dt*28);player.vx*=stop;player.vy*=stop}
+ }
+
+ const oldX=player.x,oldY=player.y;
+ player.x+=player.vx*dt;clampPlayer();if(inObstacle(player.x,player.y)){player.x=oldX;player.vx=0}
+ player.y+=player.vy*dt;clampPlayer();if(inObstacle(player.x,player.y)){player.y=oldY;player.vy=0}
+
+ updateEnemies(dt);updateProjectiles(dt);
+ for(const p of particles){p.t-=dt;if(Number.isFinite(p.vx)){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=.97;p.vy*=.97}}
+ particles=particles.filter(p=>p.t>0);
+ for(const n of numbers){n.t-=dt;n.y-=22*dt}numbers=numbers.filter(n=>n.t>0);
+ for(const a of afterimages)a.t-=dt;afterimages=afterimages.filter(a=>a.t>0);
+ shake=Math.max(0,shake-dt*18);flash=Math.max(0,flash-dt*2.5);updateCamera(dt);updateHud();updateHint();
+}
 function updateCamera(dt){
- const base=player.area==='dungeon2'?1.18:(player.area==='dungeon1'?1.28:1.34);
- const nearby=enemies.filter(e=>!e.dead&&dist(player,e)<230),combat=nearby.length>0;
- camera.targetZoom=base-(combat?.055:0)+(player.dashT>0?.02:0);
- let lx=clamp(player.vx*.30,-58,58),ly=clamp(player.vy*.18,-30,30);
- if(combat){let sx=0,sy=0,w=0;for(const e of nearby){const k=1/Math.max(45,dist(player,e));sx+=e.x*k;sy+=e.y*k;w+=k}if(w){lx=clamp(lx+(sx/w-player.x)*.18,-72,72);ly=clamp(ly+(sy/w-player.y)*.12,-38,38)}}
- const lf=1-Math.exp(-dt*7.5);camera.lookX=lerp(camera.lookX,lx,lf);camera.lookY=lerp(camera.lookY,ly,lf);
+ const base=player.area==='dungeon2'?1.16:(player.area==='dungeon1'?1.26:1.32),nearby=enemies.filter(e=>!e.dead&&dist(player,e)<250),combat=nearby.length>0;
+ camera.targetZoom=base-(combat?Math.min(.082,.052+nearby.length*.006):0)+(perfectEvadeT>0?.018:0)+(player.dashT>0?.008:0);
+ let lx=clamp(player.vx*.34,-66,66),ly=clamp(player.vy*.22,-36,36);
+ if(combat){
+   let sx=0,sy=0,w=0;for(const e of nearby){const k=1/Math.max(45,dist(player,e));sx+=e.x*k;sy+=e.y*k;w+=k}
+   if(w){lx=clamp(lx+(sx/w-player.x)*.22,-80,80);ly=clamp(ly+(sy/w-player.y)*.16,-44,44)}
+ }
+ const lf=1-Math.exp(-dt*8.5);camera.lookX=lerp(camera.lookX,lx,lf);camera.lookY=lerp(camera.lookY,ly,lf);
  const tx=player.x+camera.lookX,ty=player.y+camera.lookY;
- if(cameraSnap){camera.x=tx;camera.y=ty;camera.vx=camera.vy=0}else{const k=combat?34:27,d=combat?11.5:10.5;camera.vx+=(tx-camera.x)*k*dt;camera.vy+=(ty-camera.y)*k*dt;const damp=Math.exp(-d*dt);camera.vx*=damp;camera.vy*=damp;camera.x+=camera.vx*dt;camera.y+=camera.vy*dt}
- camera.zoom=lerp(camera.zoom,camera.targetZoom,1-Math.exp(-dt*4.2));const vw=W/camera.zoom,vh=H/camera.zoom,cx=clamp(camera.x,vw*.5,W-vw*.5),cy=clamp(camera.y,vh*.5,H-vh*.5);if(cx!==camera.x)camera.vx=0;if(cy!==camera.y)camera.vy=0;camera.x=cx;camera.y=cy;cameraSnap=false
+ if(cameraSnap){camera.x=tx;camera.y=ty;camera.vx=camera.vy=0}else{
+   const k=combat?36:30,d=combat?12:11;camera.vx+=(tx-camera.x)*k*dt;camera.vy+=(ty-camera.y)*k*dt;
+   const damp=Math.exp(-d*dt);camera.vx*=damp;camera.vy*=damp;camera.x+=camera.vx*dt;camera.y+=camera.vy*dt;
+ }
+ camera.zoom=lerp(camera.zoom,camera.targetZoom,1-Math.exp(-dt*4.8));
+ const vw=W/camera.zoom,vh=H/camera.zoom,cx=clamp(camera.x,vw*.5,W-vw*.5),cy=clamp(camera.y,vh*.5,H-vh*.5);
+ if(cx!==camera.x)camera.vx=0;if(cy!==camera.y)camera.vy=0;camera.x=cx;camera.y=cy;cameraSnap=false;
 }
 function worldTransform(){X.setTransform(camera.zoom,0,0,camera.zoom,W/2-camera.x*camera.zoom,H/2-camera.y*camera.zoom)}
 function screenParallax(im,factor,scale=1.10,alpha=1){if(!im)return;const sw=W*scale,sh=H*scale,nx=(camera.x-W/2)/(W/2),ny=(camera.y-H/2)/(H/2);X.save();X.globalAlpha=alpha;X.drawImage(im,(W-sw)/2-nx*34*factor,(H-sh)/2-ny*22*factor,sw,sh);X.restore()}
 function inObstacle(x,y){const obs=areas[player.area].obstacles||[];return obs.some(r=>x>r.x&&x<r.x+r.w&&y>r.y&&y<r.y+r.h)}function clampPlayer(){const b=areas[player.area].bounds;player.x=clamp(player.x,b.x,b.x+b.w);player.y=clamp(player.y,b.y,b.y+b.h)}function clampEntity(e){const b=areas[player.area].bounds;e.x=clamp(e.x,b.x,b.x+b.w);e.y=clamp(e.y,b.y,b.y+b.h)}
-function updateEnemies(dt){for(const e of enemies){if(e.dead)continue;e.hit=Math.max(0,e.hit-dt);if(e.boss){updateBoss(e,dt);continue}const d=dist(player,e);if(e.windup>0){e.windup-=dt;if(e.windup<=0){if(dist(player,e)<e.range+18)hurt(e.dmg);e.timer=1.0;burst(e.x,e.y,'#ffb36b',7)}continue}e.timer=Math.max(0,e.timer-dt);if(d>e.range){const dx=(player.x-e.x)/(d||1),dy=(player.y-e.y)/(d||1);e.x+=dx*e.speed*dt;e.y+=dy*e.speed*dt;clampEntity(e)}else if(e.timer<=0){e.windup=e.type==='wolf'?.32:.43}}
+function updateEnemies(dt){
+ for(const e of enemies){
+   if(e.dead)continue;e.hit=Math.max(0,e.hit-dt);e.stagger=Math.max(0,(e.stagger||0)-dt);
+   if(e.boss){updateBoss(e,dt);continue}
+   const d=dist(player,e);
+   if(e.windup>0){
+     e.vx*=Math.exp(-dt*18);e.vy*=Math.exp(-dt*18);e.windup-=dt;
+     if(e.windup<=0){if(dist(player,e)<e.range+18)hurt(e.dmg);e.timer=1.0;burst(e.x,e.y,'#ffb36b',7)}
+     continue;
+   }
+   if(e.stagger>0){e.vx*=Math.exp(-dt*24);e.vy*=Math.exp(-dt*24);continue}
+   e.timer=Math.max(0,e.timer-dt);
+   if(d>e.range){
+     const dx=(player.x-e.x)/(d||1),dy=(player.y-e.y)/(d||1),a=1-Math.exp(-dt*7);
+     e.vx=lerp(e.vx,dx*e.speed,a);e.vy=lerp(e.vy,dy*e.speed,a);e.x+=e.vx*dt;e.y+=e.vy*dt;clampEntity(e);
+   }else{
+     e.vx*=Math.exp(-dt*12);e.vy*=Math.exp(-dt*12);
+     if(e.timer<=0)e.windup=e.type==='wolf'?.32:.43;
+   }
+ }
 }
 function updateBoss(e,dt){const d=dist(player,e);e.pattern-=dt;if(e.windup>0){e.windup-=dt;if(e.windup<=0){bossExecute(e)}return}if(e.pattern<=0){e.phase=e.hp/e.maxHp<.5?2:1;const roll=Math.random();e.next=roll<.38?'burst':roll<.72?'slam':'charge';e.windup=e.next==='burst'?.75:e.next==='slam'?.62:.48;e.pattern=e.phase===2?1.7:2.2;return}if(d>85&&e.next!=='charge'){const dx=(player.x-e.x)/(d||1),dy=(player.y-e.y)/(d||1);e.x+=dx*e.speed*dt*(e.phase===2?1.2:1);e.y+=dy*e.speed*dt*(e.phase===2?1.2:1);clampEntity(e)}}
 function bossExecute(e){if(e.next==='burst'){const n=e.phase===2?12:9;for(let i=0;i<n;i++){const a=i/n*Math.PI*2+gameTime*.3;projectiles.push({owner:'e',x:e.x,y:e.y,vx:Math.cos(a)*150,vy:Math.sin(a)*150,life:2.2,dmg:e.dmg,kind:'void',r:7})}ring(e.x,e.y,120,'#a95cff')}else if(e.next==='slam'){ring(e.x,e.y,95,'#ff7558');if(dist(player,e)<100)hurt(e.dmg+4)}else{const dx=(player.x-e.x)/(dist(player,e)||1),dy=(player.y-e.y)/(dist(player,e)||1);e.x+=dx*105;e.y+=dy*105;clampEntity(e);if(dist(player,e)<72)hurt(e.dmg+7);shake=10}burst(e.x,e.y,'#bf69ff',20)}
@@ -140,7 +304,17 @@ function drawInteractables(){for(const o of interactables){if(o.type==='portal')
 function drawNpc(o){const bob=Math.sin(gameTime*3+o.x)*1.5;X.save();X.translate(o.x,o.y+bob);if(o.type==='ilyra'){pxRect(-7,-22,14,18,'#e9e3cf');pxRect(-6,-26,12,8,'#d9c7a4');pxRect(-8,-15,16,12,'#456da0');pxRect(-9,-4,18,8,'#e4dfcf')}else if(o.type==='smith'){pxRect(-9,-20,18,18,'#7b3b26');pxRect(-7,-26,14,9,'#d66e3a');pxRect(-11,-6,22,10,'#5b3827');pxRect(9,-13,4,18,'#6d6b67')}else{pxRect(-8,-20,16,19,'#8e3f4d');pxRect(-6,-26,12,8,'#b56a49');pxRect(-10,-5,20,9,'#e8d5b5')}X.restore();if(dist(player,o)<45){X.fillStyle='#f6d779';X.font='bold 17px Georgia';X.textAlign='center';X.fillText('!',o.x,o.y-35)}}
 function drawChest(x,y){X.save();X.translate(x,y);pxRect(-12,-7,24,14,'#6f3d20');pxRect(-12,-2,24,4,'#d1a03f');pxRect(-2,-6,4,12,'#d1a03f');pxRect(-10,-9,20,4,'#8a5229');X.restore()}
 function pxRect(x,y,w,h,c){X.fillStyle=c;X.fillRect(Math.round(x),Math.round(y),Math.round(w),Math.round(h))}
-function drawHero(x,y,dir,ghost){const c=player.classId,moving=Math.hypot(player.vx,player.vy)>8,walk=Math.sin(gameTime*13)*2*(moving?1:0),idle=Math.sin(gameTime*3.2)*.7,attack=player.attackAnim>0?1-player.attackAnim/.28:0;X.save();X.translate(Math.round(x),Math.round(y+idle));if(dir==='left')X.scale(-1,1);X.scale(1.18,1.18);const hit=player.invuln>0&&Math.floor(gameTime*20)%2===0;if(hit&&!ghost)X.globalAlpha=.45;X.fillStyle='#0007';X.beginPath();X.ellipse(0,10,14,5,0,0,Math.PI*2);X.fill();if(c==='guardian')drawGuardian(walk,attack,dir);else if(c==='hunter')drawHunter(walk,attack,dir);else drawOccult(walk,attack,dir);X.restore()}
+function drawHero(x,y,dir,ghost){
+ const c=player.classId,speed=Math.hypot(player.vx,player.vy),moving=speed>8;
+ const walk=Math.sin(gameTime*(11+Math.min(5,speed/80)))*2*(moving?1:0),idle=Math.sin(gameTime*3.2)*.7;
+ const animMax=player.attackAnimMax||.28,attack=player.attackAnim>0?clamp(1-player.attackAnim/animMax,0,1):0,strike=player.attackAnim>0?Math.sin(attack*Math.PI):0,dv=dirVec(dir);
+ X.save();X.translate(Math.round(x+dv.x*strike*3.5),Math.round(y+idle+dv.y*strike*2.5));
+ const lean=clamp(player.vx/650,-.045,.045);X.rotate(dir==='left'?-lean:lean);if(dir==='left')X.scale(-1,1);
+ const squash=player.dashT>0?.07:(moving?Math.min(.025,speed/9000):0);X.scale(1.18*(1+squash),1.18*(1-squash*.6));
+ const hit=player.invuln>0&&Math.floor(gameTime*20)%2===0;if(hit&&!ghost)X.globalAlpha=.45;
+ X.fillStyle='#0007';X.beginPath();X.ellipse(0,10,14,5,0,0,Math.PI*2);X.fill();
+ if(c==='guardian')drawGuardian(walk,attack,dir);else if(c==='hunter')drawHunter(walk,attack,dir);else drawOccult(walk,attack,dir);X.restore();
+}
 function cloak(c1,c2,w,back=false){const sway=Math.sin(gameTime*8)*1.5+w*.7;X.fillStyle=c1;X.beginPath();X.moveTo(-9,-17);X.lineTo(-13-sway,5);X.lineTo(0,12);X.lineTo(13+sway,5);X.lineTo(9,-17);X.closePath();X.fill();X.fillStyle=c2;X.fillRect(-2,-15,4,22);if(back){X.fillStyle='#d7ad48';X.fillRect(-1,-12,2,13)}}
 function drawGuardian(w,a,dir){const back=dir==='up';cloak('#173d79','#d5a842',w,back);pxRect(-9,0,7,11,'#18243a');pxRect(2,0,7,11,'#18243a');pxRect(-10+w,-1,7,5,'#b7c4cc');pxRect(3-w,-1,7,5,'#b7c4cc');pxRect(-11,-15,22,17,'#c4cdd1');pxRect(-8,-12,16,12,'#235a9b');pxRect(-8,-25,16,12,'#d7b08b');pxRect(-10,-29,20,7,'#242b39');pxRect(-10,-24,4,5,'#303a48');X.fillStyle='#184b8a';X.beginPath();X.moveTo(-12,-14);X.lineTo(-22,-5);X.lineTo(-18,10);X.lineTo(-8,3);X.closePath();X.fill();X.strokeStyle='#e2bd55';X.lineWidth=1.5;X.stroke();X.save();X.translate(11,-8);X.rotate(a?(-.7+a*1.9):.12);X.fillStyle='#f2f4f2';X.fillRect(0,-2,31,4);X.fillStyle='#e3bd57';X.fillRect(-4,-3,8,6);X.restore()}
 function drawHunter(w,a,dir){const back=dir==='up';cloak('#102f67','#d7ad48',w,back);pxRect(-7,-1,5,11,'#202738');pxRect(2,-1,5,11,'#202738');pxRect(-9,-16,18,17,'#173d79');pxRect(-8,-24,16,11,'#ddb995');X.fillStyle='#0f2f66';X.beginPath();X.moveTo(-12,-26);X.lineTo(0,-35);X.lineTo(12,-26);X.lineTo(8,-19);X.lineTo(-8,-19);X.closePath();X.fill();pxRect(-11,-30,4,8,'#d6ad47');pxRect(8,-31,4,10,'#d6ad47');X.save();X.translate(13,-9);X.rotate(a?(-.45+a*.95):0);X.strokeStyle='#dfb451';X.lineWidth=2;X.beginPath();X.arc(0,0,13,-1.2,1.2);X.stroke();X.strokeStyle='#a9d9ff';X.beginPath();X.moveTo(4,-11);X.lineTo(4,11);X.stroke();X.fillStyle='#bde8ff';X.fillRect(2,-1,23,2);X.restore()}
