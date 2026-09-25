@@ -1,13 +1,13 @@
 {
   "name": "Crônicas do Ferro",
   "short_name": "Crônicas",
-  "description": "RPG 8-bit de exploração, caçadores de monstros e masmorras.",
-  "start_url": "/",
+  "description": "RPG mobile-first 16-bit/HD-2D de exploração, combate, masmorras e caçadores de monstros.",
+  "start_url": "/?v=7",
   "scope": "/",
-  "display": "standalone",
+  "display": "fullscreen",
   "orientation": "landscape",
-  "background_color": "#0d0b09",
-  "theme_color": "#16130f",
+  "background_color": "#02060a",
+  "theme_color": "#07101a",
   "icons": [
     {
       "src": "/icon.svg",
@@ -15,5 +15,9 @@
       "type": "image/svg+xml",
       "purpose": "any maskable"
     }
+  ],
+  "display_override": [
+    "fullscreen",
+    "standalone"
   ]
 }
