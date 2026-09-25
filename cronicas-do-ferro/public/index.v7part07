@@ -6,7 +6,7 @@ const W=800,H=450,SAVE='cronicas_do_ferro_save_v7',OLD='cronicas_do_ferro_save_v
 const IMG={};let assetsReady=false;function preload(){return Promise.all(Object.entries(ASSET_SRC).map(([k,src])=>new Promise(res=>{const i=new Image();i.onload=()=>{IMG[k]=i;res()};i.onerror=()=>res();i.src=src}))).then(()=>assetsReady=true)}
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),rng=(a,b)=>Math.random()*(b-a)+a,dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y),lerp=(a,b,t)=>a+(b-a)*t;
 let keys={},touch={},joyAxis={x:0,y:0},joyPointer=null,attackHeld=false,attackBuffer=0,dodgeBuffer=0,hitStop=0,last=0,state='menu',toastTimer=0,sceneTimer=0,shake=0,flash=0,afterimages=[],particles=[],numbers=[],projectiles=[],enemies=[],interactables=[],ambient=[],gameTime=0,wakeLock=null;
-const camera={x:W/2,y:H/2,zoom:1.34,targetZoom:1.34,vx:0,vy:0};let cameraSnap=true;
+const camera={x:W/2,y:H/2,zoom:1.34,targetZoom:1.34,vx:0,vy:0,lookX:0,lookY:0};let cameraSnap=true;
 
 const cloud={user:null,status:'checking',timer:null,pending:null,lastError:''};
 function haptic(pattern=10){try{if(navigator.vibrate)navigator.vibrate(pattern)}catch{}}
@@ -97,19 +97,17 @@ function update(dt){if(state!=='play')return;gameTime+=dt;attackBuffer=Math.max(
  updateEnemies(dt);updateProjectiles(dt);for(const p of particles){p.t-=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=.97;p.vy*=.97}particles=particles.filter(p=>p.t>0);for(const n of numbers){n.t-=dt;n.y-=22*dt}numbers=numbers.filter(n=>n.t>0);for(const a of afterimages)a.t-=dt;afterimages=afterimages.filter(a=>a.t>0);shake=Math.max(0,shake-dt*18);flash=Math.max(0,flash-dt*2.5);updateCamera(dt);updateHud();updateHint()}
 function updateCamera(dt){
  const base=player.area==='dungeon2'?1.18:(player.area==='dungeon1'?1.28:1.34);
- const combat=enemies.some(e=>!e.dead&&dist(player,e)<150);
- camera.targetZoom=base-(combat?.04:0)+(player.dashT>0?.025:0);
- const lookX=clamp(player.vx*.34,-72,72),lookY=clamp(player.vy*.22,-42,42);
- const tx=player.x+lookX,ty=player.y+lookY;
- const follow=1-Math.exp(-dt*(cameraSnap?30:5.8));
- camera.x=lerp(camera.x,tx,follow);camera.y=lerp(camera.y,ty,follow);
- camera.zoom=lerp(camera.zoom,camera.targetZoom,1-Math.exp(-dt*3.8));
- const vw=W/camera.zoom,vh=H/camera.zoom;
- camera.x=clamp(camera.x,vw*.5,W-vw*.5);camera.y=clamp(camera.y,vh*.5,H-vh*.5);
- cameraSnap=false;
+ const nearby=enemies.filter(e=>!e.dead&&dist(player,e)<230),combat=nearby.length>0;
+ camera.targetZoom=base-(combat?.055:0)+(player.dashT>0?.02:0);
+ let lx=clamp(player.vx*.30,-58,58),ly=clamp(player.vy*.18,-30,30);
+ if(combat){let sx=0,sy=0,w=0;for(const e of nearby){const k=1/Math.max(45,dist(player,e));sx+=e.x*k;sy+=e.y*k;w+=k}if(w){lx=clamp(lx+(sx/w-player.x)*.18,-72,72);ly=clamp(ly+(sy/w-player.y)*.12,-38,38)}}
+ const lf=1-Math.exp(-dt*7.5);camera.lookX=lerp(camera.lookX,lx,lf);camera.lookY=lerp(camera.lookY,ly,lf);
+ const tx=player.x+camera.lookX,ty=player.y+camera.lookY;
+ if(cameraSnap){camera.x=tx;camera.y=ty;camera.vx=camera.vy=0}else{const k=combat?34:27,d=combat?11.5:10.5;camera.vx+=(tx-camera.x)*k*dt;camera.vy+=(ty-camera.y)*k*dt;const damp=Math.exp(-d*dt);camera.vx*=damp;camera.vy*=damp;camera.x+=camera.vx*dt;camera.y+=camera.vy*dt}
+ camera.zoom=lerp(camera.zoom,camera.targetZoom,1-Math.exp(-dt*4.2));const vw=W/camera.zoom,vh=H/camera.zoom,cx=clamp(camera.x,vw*.5,W-vw*.5),cy=clamp(camera.y,vh*.5,H-vh*.5);if(cx!==camera.x)camera.vx=0;if(cy!==camera.y)camera.vy=0;camera.x=cx;camera.y=cy;cameraSnap=false
 }
 function worldTransform(){X.setTransform(camera.zoom,0,0,camera.zoom,W/2-camera.x*camera.zoom,H/2-camera.y*camera.zoom)}
-function screenParallax(im,factor,scale=1.10,alpha=1){if(!im)return;const sw=W*scale,sh=H*scale;const nx=(camera.x-W/2)/(W/2),ny=(camera.y-H/2)/(H/2);X.save();X.globalAlpha=alpha;X.drawImage(im,(W-sw)/2-nx*22*factor,(H-sh)/2-ny*14*factor,sw,sh);X.restore()}
+function screenParallax(im,factor,scale=1.10,alpha=1){if(!im)return;const sw=W*scale,sh=H*scale,nx=(camera.x-W/2)/(W/2),ny=(camera.y-H/2)/(H/2);X.save();X.globalAlpha=alpha;X.drawImage(im,(W-sw)/2-nx*34*factor,(H-sh)/2-ny*22*factor,sw,sh);X.restore()}
 function inObstacle(x,y){const obs=areas[player.area].obstacles||[];return obs.some(r=>x>r.x&&x<r.x+r.w&&y>r.y&&y<r.y+r.h)}function clampPlayer(){const b=areas[player.area].bounds;player.x=clamp(player.x,b.x,b.x+b.w);player.y=clamp(player.y,b.y,b.y+b.h)}function clampEntity(e){const b=areas[player.area].bounds;e.x=clamp(e.x,b.x,b.x+b.w);e.y=clamp(e.y,b.y,b.y+b.h)}
 function updateEnemies(dt){for(const e of enemies){if(e.dead)continue;e.hit=Math.max(0,e.hit-dt);if(e.boss){updateBoss(e,dt);continue}const d=dist(player,e);if(e.windup>0){e.windup-=dt;if(e.windup<=0){if(dist(player,e)<e.range+18)hurt(e.dmg);e.timer=1.0;burst(e.x,e.y,'#ffb36b',7)}continue}e.timer=Math.max(0,e.timer-dt);if(d>e.range){const dx=(player.x-e.x)/(d||1),dy=(player.y-e.y)/(d||1);e.x+=dx*e.speed*dt;e.y+=dy*e.speed*dt;clampEntity(e)}else if(e.timer<=0){e.windup=e.type==='wolf'?.32:.43}}
 }
