@@ -228,8 +228,8 @@ function update(dt){
  }
 
  const oldX=player.x,oldY=player.y;
- player.x+=player.vx*dt;clampPlayer();if(inObstacle(player.x,player.y)){player.x=oldX;player.vx=0}
- player.y+=player.vy*dt;clampPlayer();if(inObstacle(player.x,player.y)){player.y=oldY;player.vy=0}
+ player.x+=player.vx*dt;clampPlayer();if(inObstacle(player.x,player.y,9)){player.x=oldX;player.vx=0}
+ player.y+=player.vy*dt;clampPlayer();if(inObstacle(player.x,player.y,9)){player.y=oldY;player.vy=0}
 
  updateEnemies(dt);updateProjectiles(dt);
  for(const p of particles){p.t-=dt;if(Number.isFinite(p.vx)){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=.97;p.vy*=.97}}
@@ -258,7 +258,7 @@ function updateCamera(dt){
 }
 function worldTransform(){X.setTransform(camera.zoom,0,0,camera.zoom,W/2-camera.x*camera.zoom,H/2-camera.y*camera.zoom)}
 function screenParallax(im,factor,scale=1.10,alpha=1){if(!im)return;const sw=W*scale,sh=H*scale,nx=(camera.x-W/2)/(W/2),ny=(camera.y-H/2)/(H/2);X.save();X.globalAlpha=alpha;X.drawImage(im,(W-sw)/2-nx*34*factor,(H-sh)/2-ny*22*factor,sw,sh);X.restore()}
-function inObstacle(x,y){const obs=areas[player.area].obstacles||[];return obs.some(r=>x>r.x&&x<r.x+r.w&&y>r.y&&y<r.y+r.h)}function clampPlayer(){const b=areas[player.area].bounds;player.x=clamp(player.x,b.x,b.x+b.w);player.y=clamp(player.y,b.y,b.y+b.h)}function clampEntity(e){const b=areas[player.area].bounds;e.x=clamp(e.x,b.x,b.x+b.w);e.y=clamp(e.y,b.y,b.y+b.h)}
+function inObstacle(x,y,pad=0){const obs=areas[player.area].obstacles||[];return obs.some(r=>x>r.x-pad&&x<r.x+r.w+pad&&y>r.y-pad&&y<r.y+r.h+pad)}function clampPlayer(){const b=areas[player.area].bounds;player.x=clamp(player.x,b.x+9,b.x+b.w-9);player.y=clamp(player.y,b.y+9,b.y+b.h-9)}function clampEntity(e){const b=areas[player.area].bounds,p=Math.max(5,(e.r||12)*.42);e.x=clamp(e.x,b.x+p,b.x+b.w-p);e.y=clamp(e.y,b.y+p,b.y+b.h-p)}
 function updateEnemies(dt){
  for(const e of enemies){
    if(e.dead)continue;e.hit=Math.max(0,e.hit-dt);e.stagger=Math.max(0,(e.stagger||0)-dt);
@@ -273,7 +273,7 @@ function updateEnemies(dt){
    e.timer=Math.max(0,e.timer-dt);
    if(d>e.range){
      const dx=(player.x-e.x)/(d||1),dy=(player.y-e.y)/(d||1),a=1-Math.exp(-dt*7);
-     e.vx=lerp(e.vx,dx*e.speed,a);e.vy=lerp(e.vy,dy*e.speed,a);e.x+=e.vx*dt;e.y+=e.vy*dt;clampEntity(e);
+     e.vx=lerp(e.vx,dx*e.speed,a);e.vy=lerp(e.vy,dy*e.speed,a);const ox=e.x,oy=e.y,pad=Math.max(5,e.r*.42);e.x+=e.vx*dt;clampEntity(e);if(inObstacle(e.x,e.y,pad)){e.x=ox;e.vx=0}e.y+=e.vy*dt;clampEntity(e);if(inObstacle(e.x,e.y,pad)){e.y=oy;e.vy=0}
    }else{
      e.vx*=Math.exp(-dt*12);e.vy*=Math.exp(-dt*12);
      if(e.timer<=0)e.windup=e.type==='wolf'?.32:.43;
@@ -282,7 +282,7 @@ function updateEnemies(dt){
 }
 function updateBoss(e,dt){const d=dist(player,e);e.pattern-=dt;if(e.windup>0){e.windup-=dt;if(e.windup<=0){bossExecute(e)}return}if(e.pattern<=0){e.phase=e.hp/e.maxHp<.5?2:1;const roll=Math.random();e.next=roll<.38?'burst':roll<.72?'slam':'charge';e.windup=e.next==='burst'?.75:e.next==='slam'?.62:.48;e.pattern=e.phase===2?1.7:2.2;return}if(d>85&&e.next!=='charge'){const dx=(player.x-e.x)/(d||1),dy=(player.y-e.y)/(d||1);e.x+=dx*e.speed*dt*(e.phase===2?1.2:1);e.y+=dy*e.speed*dt*(e.phase===2?1.2:1);clampEntity(e)}}
 function bossExecute(e){if(e.next==='burst'){const n=e.phase===2?12:9;for(let i=0;i<n;i++){const a=i/n*Math.PI*2+gameTime*.3;projectiles.push({owner:'e',x:e.x,y:e.y,vx:Math.cos(a)*150,vy:Math.sin(a)*150,life:2.2,dmg:e.dmg,kind:'void',r:7})}ring(e.x,e.y,120,'#a95cff')}else if(e.next==='slam'){ring(e.x,e.y,95,'#ff7558');if(dist(player,e)<100)hurt(e.dmg+4)}else{const dx=(player.x-e.x)/(dist(player,e)||1),dy=(player.y-e.y)/(dist(player,e)||1);e.x+=dx*105;e.y+=dy*105;clampEntity(e);if(dist(player,e)<72)hurt(e.dmg+7);shake=10}burst(e.x,e.y,'#bf69ff',20)}
-function updateProjectiles(dt){for(const p of projectiles){p.life-=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;if(p.owner==='p'){for(const e of enemies)if(!e.dead&&!p.hit.has(e.id)&&Math.hypot(p.x-e.x,p.y-e.y)<e.r+p.r){p.hit.add(e.id);damageEnemy(e,p.dmg);if(p.pierce>0)p.pierce--;else p.life=0}}else if(Math.hypot(p.x-player.x,p.y-player.y)<18+p.r){hurt(p.dmg);p.life=0}if(p.x<20||p.x>780||p.y<30||p.y>430)p.life=0}projectiles=projectiles.filter(p=>p.life>0)}
+function updateProjectiles(dt){for(const p of projectiles){p.life-=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;if(p.owner==='p'){for(const e of enemies)if(!e.dead&&!p.hit.has(e.id)&&Math.hypot(p.x-e.x,p.y-e.y)<e.r+p.r){p.hit.add(e.id);damageEnemy(e,p.dmg);if(p.pierce>0)p.pierce--;else p.life=0}}else if(Math.hypot(p.x-player.x,p.y-player.y)<18+p.r){hurt(p.dmg);p.life=0}if(p.x<20||p.x>780||p.y<30||p.y>430||inObstacle(p.x,p.y,2))p.life=0}projectiles=projectiles.filter(p=>p.life>0)}
 function burst(x,y,c,n=10){for(let i=0;i<n;i++)particles.push({x,y,vx:rng(-80,80),vy:rng(-80,20),t:rng(.25,.65),max:.65,c,s:rng(2,5)})}function ring(x,y,r,c){particles.push({ring:true,x,y,r:6,to:r,t:.55,max:.55,c,s:2})}function slashFx(d,combo){particles.push({slash:true,x:player.x,y:player.y,ang:Math.atan2(d.y,d.x),t:.24,max:.24,c:combo===3?'#ffe07a':'#9bd5ff',s:combo})}
 function draw(){
  const ox=shake?rng(-shake,shake):0,oy=shake?rng(-shake,shake):0;
