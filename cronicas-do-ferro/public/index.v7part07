@@ -3,7 +3,7 @@
 'use strict';
 const $=id=>document.getElementById(id), C=$('game'),X=C.getContext('2d'),M=$('mini'),MX=M.getContext('2d'),overlay=$('overlay');X.imageSmoothingEnabled=true;X.imageSmoothingQuality='high';MX.imageSmoothingEnabled=false;
 const W=800,H=450,SAVE='cronicas_do_ferro_save_v7',OLD='cronicas_do_ferro_save_v6',LEGACY='cronicas_do_ferro_save_v2';
-const EXTRA_ASSET={spriteAtlas:'/assets/sprite_atlas_v10.webp'}
+const EXTRA_ASSET={spriteAtlas:'/assets/sprite_atlas_v10.webp',heroAtlas:'/assets/hero_atlas_hd.webp'}
 const IMG={};let assetsReady=false;function preload(){return Promise.all(Object.entries({...ASSET_SRC,...EXTRA_ASSET}).map(([k,src])=>new Promise(res=>{const i=new Image();i.onload=()=>{IMG[k]=i;res()};i.onerror=()=>res();i.src=src}))).then(()=>assetsReady=true)}
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),rng=(a,b)=>Math.random()*(b-a)+a,dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y),lerp=(a,b,t)=>a+(b-a)*t;
 let keys={},touch={},joyAxis={x:0,y:0},joyPointer=null,attackHeld=false,attackBuffer=0,dodgeBuffer=0,perfectEvadeT=0,hitStop=0,last=0,state='menu',toastTimer=0,sceneTimer=0,shake=0,flash=0,afterimages=[],particles=[],numbers=[],projectiles=[],enemies=[],interactables=[],ambient=[],gameTime=0,wakeLock=null;
@@ -335,20 +335,24 @@ function drawNpc(o){
 function drawChest(x,y){X.save();X.translate(x,y);pxRect(-12,-7,24,14,'#6f3d20');pxRect(-12,-2,24,4,'#d1a03f');pxRect(-2,-6,4,12,'#d1a03f');pxRect(-10,-9,20,4,'#8a5229');X.restore()}
 function pxRect(x,y,w,h,c){X.fillStyle=c;X.fillRect(Math.round(x),Math.round(y),Math.round(w),Math.round(h))}
 function drawHero(x,y,dir,ghost){
- const A=IMG.spriteAtlas;if(!A){drawHeroFallback(x,y,dir,ghost);return}
- const classRow=player.classId==='hunter'?0:player.classId==='guardian'?1:2;
- const dirRow=dir==='left'?1:dir==='right'?2:dir==='up'?3:0;
- const speed=Math.hypot(player.vx,player.vy),moving=speed>18;let frame=0;
- if(player.attackKind==='skill'&&player.attackAnim>0)frame=7;
- else if(player.dashT>0)frame=7;
- else if(player.attackAnim>0)frame=4+Math.min(2,Math.floor((1-player.attackAnim/(player.attackAnimMax||.28))*3));
- else if(moving)frame=1+(Math.floor(gameTime*(9+Math.min(3,speed/100)))%3);
- const sx=frame*48,sy=classRow*256+dirRow*64;
- X.save();X.translate(Math.round(x),Math.round(y+4));X.imageSmoothingEnabled=false;
- if(ghost)X.globalAlpha=.18;else if(player.invuln>0&&Math.floor(gameTime*20)%2===0)X.globalAlpha=.42;
- const stretch=player.dashT>0?.08:0;X.scale(1+stretch,1-stretch*.25);
- X.fillStyle='rgba(0,0,0,.28)';X.beginPath();X.ellipse(0,3,11,3.5,0,0,Math.PI*2);X.fill();
- X.drawImage(A,sx,sy,48,64,-19,-47,38,51);
+ const A=IMG.heroAtlas;if(!A){drawHeroFallback(x,y,dir,ghost);return}
+ const row=player.classId==='hunter'?0:player.classId==='guardian'?1:2;
+ const speed=Math.hypot(player.vx,player.vy),moving=speed>18;
+ const idleFrame=dir==='up'?2:(dir==='left'||dir==='right'?1:0);
+ let frame=idleFrame;
+ if(player.attackKind==='skill'&&player.attackAnim>0)frame=8;
+ else if(player.dashT>0)frame=5;
+ else if(player.attackAnim>0)frame=6+Math.min(2,Math.floor((1-player.attackAnim/(player.attackAnimMax||.28))*3));
+ else if(moving&&(dir==='left'||dir==='right'))frame=3+(Math.floor(gameTime*(9+Math.min(3,speed/100)))%3);
+
+ const sx=frame*96,sy=row*96,bob=moving&&dir!=='left'&&dir!=='right'?Math.sin(gameTime*10)*1.2:0;
+ X.save();X.translate(Math.round(x),Math.round(y+4+bob));
+ if(dir==='left')X.scale(-1,1);
+ X.imageSmoothingEnabled=true;X.imageSmoothingQuality='high';
+ if(ghost)X.globalAlpha=.16;else if(player.invuln>0&&Math.floor(gameTime*20)%2===0)X.globalAlpha=.40;
+ const stretch=player.dashT>0?.08:0;X.scale(1+stretch,1-stretch*.22);
+ X.fillStyle='rgba(0,0,0,.30)';X.beginPath();X.ellipse(0,3,12,4,0,0,Math.PI*2);X.fill();
+ X.drawImage(A,sx,sy,96,96,-29,-54,58,58);
  X.restore();
 }
 function drawHeroFallback(x,y,dir,ghost){

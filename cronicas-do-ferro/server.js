@@ -112,8 +112,8 @@ async function migrate() {
 }
 
 app.get('/api/health', async (_req, res) => {
-  if (!cloudEnabled) return res.json({ ok: true, version: 10, cloud: false });
-  try { await pool.query('SELECT 1'); res.json({ ok: true, version: 10, cloud: true }); }
+  if (!cloudEnabled) return res.json({ ok: true, version: 11, cloud: false });
+  try { await pool.query('SELECT 1'); res.json({ ok: true, version: 11, cloud: true }); }
   catch { res.status(503).json({ ok: false, cloud: false }); }
 });
 app.use('/api/auth', (req, res, next) => cloudEnabled ? next() : res.status(503).json({ error: 'Save na nuvem ainda não foi ativado neste servidor.' }));
