@@ -297,24 +297,51 @@ function draw(){
  drawForeground();if(flash>0){X.fillStyle=`rgba(255,244,215,${flash*.22})`;X.fillRect(0,0,W,H)}drawMini();
 }
 function drawBackground(){
- const im=IMG[areas[player.area].art];if(!im){X.fillStyle='#18202a';X.fillRect(0,0,W,H);return}
+ const im=IMG[areas[player.area].art];
+ if(!im){X.fillStyle='#18202a';X.fillRect(0,0,W,H);return}
+
+ // Far fill only exists to cover camera edges; the authored scene itself stays aligned to world coordinates.
+ const nx=(camera.x-W/2)/(W/2),ny=(camera.y-H/2)/(H/2);
+ X.save();X.globalAlpha=.58;
+ X.drawImage(im,-14-nx*5,-10-ny*3,W+28,H+20);
+ X.restore();
+
+ // Main authored scene: one aligned world layer, no duplicated full-screen wallpaper.
+ X.save();worldTransform();X.imageSmoothingEnabled=true;X.imageSmoothingQuality='high';
+ X.drawImage(im,0,0,W,H);
  const combat=enemies.some(e=>!e.dead&&dist(player,e)<230);
- screenParallax(im,.10,1.085,.92);X.fillStyle='rgba(2,6,12,.06)';X.fillRect(0,0,W,H);
- X.save();worldTransform();X.globalAlpha=1;X.drawImage(im,0,0,W,H);X.restore();
- const grad=X.createLinearGradient(0,0,0,H);
- if(player.area==='forest'){grad.addColorStop(0,'rgba(117,171,206,.08)');grad.addColorStop(1,'rgba(21,55,34,.02)')}
- else if(player.area==='dungeon1'){grad.addColorStop(0,'rgba(91,126,150,.08)');grad.addColorStop(1,'rgba(29,20,15,.09)')}
- else if(player.area==='dungeon2'){grad.addColorStop(0,'rgba(96,42,133,.11)');grad.addColorStop(1,'rgba(130,35,20,.08)')}
- else{grad.addColorStop(0,'rgba(255,196,112,.035)');grad.addColorStop(1,'rgba(40,72,84,.025)')}
- X.fillStyle=grad;X.fillRect(0,0,W,H);
- X.save();worldTransform();const g=X.createRadialGradient(player.x,player.y,15,player.x,player.y,combat?125:155);g.addColorStop(0,'rgba(255,232,177,.065)');g.addColorStop(1,'rgba(0,0,0,0)');X.fillStyle=g;X.fillRect(player.x-170,player.y-170,340,340);X.restore();
+ const light=X.createRadialGradient(player.x,player.y,18,player.x,player.y,combat?120:150);
+ light.addColorStop(0,'rgba(255,231,177,.055)');light.addColorStop(1,'rgba(0,0,0,0)');
+ X.fillStyle=light;X.fillRect(player.x-165,player.y-165,330,330);
+ X.restore();
+
+ // Area-specific atmosphere is subtle; it should not flatten the detailed art.
+ const g=X.createLinearGradient(0,0,0,H);
+ if(player.area==='forest'){g.addColorStop(0,'rgba(128,181,214,.055)');g.addColorStop(.58,'rgba(0,0,0,0)');g.addColorStop(1,'rgba(22,55,32,.035)')}
+ else if(player.area==='dungeon1'){g.addColorStop(0,'rgba(115,151,170,.04)');g.addColorStop(.55,'rgba(0,0,0,0)');g.addColorStop(1,'rgba(24,15,10,.075)')}
+ else if(player.area==='dungeon2'){g.addColorStop(0,'rgba(102,50,145,.065)');g.addColorStop(.55,'rgba(0,0,0,0)');g.addColorStop(1,'rgba(150,43,24,.055)')}
+ else{g.addColorStop(0,'rgba(255,207,130,.025)');g.addColorStop(.6,'rgba(0,0,0,0)');g.addColorStop(1,'rgba(34,55,52,.025)')}
+ X.fillStyle=g;X.fillRect(0,0,W,H);
 }
 function drawForeground(){
- const dx=-(camera.x-W/2)*.075,dy=-(camera.y-H/2)*.045;X.save();X.translate(dx,dy);
- if(player.area==='village'){X.fillStyle='rgba(18,43,31,.78)';X.beginPath();X.ellipse(-28,H*.83,132,190,-.3,0,Math.PI*2);X.fill();X.beginPath();X.ellipse(W+30,H*.80,138,198,.28,0,Math.PI*2);X.fill();X.fillStyle='rgba(236,191,89,.11)';for(let i=0;i<8;i++){const x=(i*137+gameTime*8)%W;X.fillRect(x,65+(i*71)%280,2,2)}}
- else if(player.area==='forest'){X.fillStyle='rgba(8,39,27,.82)';X.beginPath();X.ellipse(-18,H*.76,155,220,-.18,0,Math.PI*2);X.fill();X.beginPath();X.ellipse(W+18,H*.72,165,230,.18,0,Math.PI*2);X.fill();X.fillStyle='rgba(193,231,128,.17)';for(let i=0;i<10;i++){const x=(i*93+gameTime*11)%W,y=110+(i*59)%290;X.beginPath();X.arc(x,y,2,0,Math.PI*2);X.fill()}}
- else{X.fillStyle=player.area==='dungeon2'?'rgba(25,7,31,.68)':'rgba(13,12,15,.58)';X.fillRect(-35,H*.80,150,160);X.fillRect(W-105,H*.77,150,170);X.fillStyle=player.area==='dungeon2'?'rgba(255,92,48,.16)':'rgba(255,174,82,.12)';for(let i=0;i<9;i++){const x=(i*113+gameTime*17)%W,y=45+(i*83)%345;X.fillRect(x,y,2,3)}}
- X.restore();const v=X.createRadialGradient(W/2,H/2,120,W/2,H/2,470);v.addColorStop(.55,'rgba(0,0,0,0)');v.addColorStop(1,'rgba(0,0,0,.24)');X.fillStyle=v;X.fillRect(0,0,W,H);
+ const im=IMG[areas[player.area].art];
+ if(im){
+  // Re-use only the near edges of the authored scene as an occlusion plane.
+  // This gives real front/back reading without crude vector blobs painted over the art.
+  const side=player.area==='dungeon2'?112:player.area==='forest'?92:86;
+  const bottom=player.area==='dungeon2'?62:player.area==='forest'?56:50;
+  const px=(camera.x-W/2)*.028,py=(camera.y-H/2)*.018;
+  X.save();worldTransform();X.translate(px,py);X.globalAlpha=.96;X.imageSmoothingEnabled=true;X.imageSmoothingQuality='high';
+  X.drawImage(im,0,80,side,H-80,0,80,side,H-80);
+  X.drawImage(im,W-side,80,side,H-80,W-side,80,side,H-80);
+  X.drawImage(im,0,H-bottom,W,bottom,0,H-bottom,W,bottom);
+  X.restore();
+ }
+
+ // Screen-space vignette only protects HUD contrast and keeps focus toward the playfield.
+ const v=X.createRadialGradient(W/2,H/2,135,W/2,H/2,480);
+ v.addColorStop(.58,'rgba(0,0,0,0)');v.addColorStop(1,'rgba(0,0,0,.19)');
+ X.fillStyle=v;X.fillRect(0,0,W,H);
 }
 function drawAmbient(){for(const a of ambient){const y=(a.y-gameTime*a.v)%H;X.globalAlpha=a.a*(.5+.5*Math.sin(gameTime*2+a.phase));X.fillStyle=player.area.startsWith('dungeon')?'#ffad55':player.area==='forest'?'#c8e98d':'#ffd889';X.fillRect(a.x,y<0?y+H:y,a.s,a.s);X.globalAlpha=1}}
 function drawInteractables(){
@@ -327,7 +354,7 @@ function drawInteractables(){
 function drawNpc(o){
  const A=IMG.spriteAtlas;if(!A)return;
  const idx=o.type==='ilyra'?0:o.type==='smith'?1:2,sx=idx*48,sy=768,bob=Math.sin(gameTime*3+o.x)*.7;
- X.save();X.translate(Math.round(o.x),Math.round(o.y+bob));X.imageSmoothingEnabled=false;
+ X.save();X.translate(Math.round(o.x),Math.round(o.y+bob));X.imageSmoothingEnabled=true;X.imageSmoothingQuality='high';
  X.fillStyle='rgba(0,0,0,.24)';X.beginPath();X.ellipse(0,3,10,3,0,0,Math.PI*2);X.fill();
  X.drawImage(A,sx,sy,48,64,-17,-44,34,45);X.restore();
  if(dist(player,o)<45){X.fillStyle='#f6d779';X.font='bold 15px Georgia';X.textAlign='center';X.fillText('!',o.x,o.y-41)}
@@ -376,7 +403,7 @@ function drawEnemy(e){
  X.translate(Math.round(e.x),Math.round(e.y+bob));if((e.vx||0)<-1&&e.type==='wolf')X.scale(-1,1);
  if(e.windup>0){const charge=1-clamp(e.windup/(e.boss?(e.next==='burst'?.75:e.next==='slam'?.62:.48):(e.type==='wolf'?.32:.43)),0,1),pulse=.5+.5*Math.sin(gameTime*18);X.strokeStyle=e.boss?'#cf66ff':'#ffb064';X.globalAlpha=.5+.38*pulse;X.lineWidth=1.7+charge*1.5;X.beginPath();X.arc(0,0,e.r+8+charge*5,0,Math.PI*2);X.stroke();X.globalAlpha=1}
  if(e.hit>0){X.filter='brightness(1.8) saturate(1.15)';X.translate(rng(-1,1),rng(-.7,.7))}
- if(A){X.imageSmoothingEnabled=false;
+ if(A){X.imageSmoothingEnabled=true;X.imageSmoothingQuality='high';
   if(e.type==='wolf')X.drawImage(A,0,832,64,48,-22,-29,44,33);
   else if(e.type==='slime')X.drawImage(A,72,840,48,40,-17,-25,34,28);
   else if(e.type==='skeleton')X.drawImage(A,128,824,48,64,-17,-43,34,45);
