@@ -2,7 +2,7 @@
   "name": "Crônicas do Ferro",
   "short_name": "Crônicas",
   "description": "RPG mobile-first 16-bit/HD-2D de exploração, combate, masmorras e caçadores de monstros.",
-  "start_url": "/?v=7",
+  "start_url": "/?v=9",
   "scope": "/",
   "display": "fullscreen",
   "orientation": "landscape",
